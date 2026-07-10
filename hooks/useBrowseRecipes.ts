@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { loadBrowseFilters, saveBrowseFilters } from '../utils/browseFiltersStorage';
 
 const API_KEY = process.env.EXPO_PUBLIC_SPOONACULAR_API_KEY ?? '';
 const CACHE_TTL = 5 * 60 * 1000;
@@ -33,9 +34,33 @@ export function useBrowseRecipes() {
   const [diets, setDiets] = useState<string[]>([]);
   const [blacklists, setBlacklists] = useState<string[]>([]);
   const [mealTypes, setMealTypes] = useState<string[]>([]);
+  const [hydrated, setHydrated] = useState(false);
 
   const recipeCountRef = useRef(0);
   const lastApiRequestAtRef = useRef(0);
+
+  useEffect(() => {
+    loadBrowseFilters().then((saved) => {
+      if (saved) {
+        if (saved.protein) setProtein(saved.protein);
+        if (saved.carbs) setCarbs(saved.carbs);
+        if (saved.fat) setFat(saved.fat);
+        if (saved.sugar) setSugar(saved.sugar);
+        if (saved.cookingTime) setCookingTime(saved.cookingTime);
+        if (saved.price) setPrice(saved.price);
+        if (saved.ingredients) setIngredients(saved.ingredients);
+        if (saved.cuisines) setCuisines(saved.cuisines);
+        if (saved.diets) setDiets(saved.diets);
+        if (saved.blacklists) setBlacklists(saved.blacklists);
+        if (saved.mealTypes) setMealTypes(saved.mealTypes);
+        if (saved.query) {
+          setSearchInput(saved.query);
+          setAppliedSearchQuery(saved.query);
+        }
+      }
+      setHydrated(true);
+    });
+  }, []);
 
   const throttle = useCallback(async () => {
     const elapsed = Date.now() - lastApiRequestAtRef.current;
@@ -140,9 +165,19 @@ export function useBrowseRecipes() {
   }, [protein, carbs, fat, sugar, cookingTime, price, ingredients, cuisines, diets, blacklists, mealTypes, appliedSearchQuery, throttle, filterIsEmpty]);
 
   useEffect(() => {
+    if (!hydrated) return;
     setHasMore(true);
     fetchRecipes(false, false);
-  }, [fetchRecipes]);
+  }, [fetchRecipes, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    saveBrowseFilters({
+      protein, carbs, fat, sugar, cookingTime, price,
+      ingredients, cuisines, diets, blacklists, mealTypes,
+      query: appliedSearchQuery,
+    });
+  }, [hydrated, protein, carbs, fat, sugar, cookingTime, price, ingredients, cuisines, diets, blacklists, mealTypes, appliedSearchQuery]);
 
   useEffect(() => {
     const normalized = searchInput.trim();
