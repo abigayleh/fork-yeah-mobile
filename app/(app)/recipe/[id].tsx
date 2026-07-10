@@ -3,6 +3,8 @@ import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet, ActivityIn
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import IngredientCheckbox from '../../../components/IngredientCheckbox';
+import RecipeActions from '../../../components/RecipeActions';
+import { useRecipeSavedStatus } from '../../../hooks/useRecipeSavedStatus';
 
 const API_KEY = process.env.EXPO_PUBLIC_SPOONACULAR_API_KEY ?? '';
 
@@ -26,6 +28,7 @@ export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [servings, setServings] = useState<number | null>(null);
+  const { isFavorited, isWantToTry, toggleFavorite, toggleWantToTry } = useRecipeSavedStatus(String(id ?? ''), false);
 
   const { data: recipe, isLoading, isError } = useQuery<Recipe>({
     queryKey: ['spoonacularRecipe', id],
@@ -70,7 +73,18 @@ export default function RecipeDetailScreen() {
       <Text style={styles.title}>{recipe.title}</Text>
 
       {recipe.image ? (
-        <Image source={{ uri: recipe.image }} style={styles.image} resizeMode="cover" />
+        <View style={styles.imageWrap}>
+          <Image source={{ uri: recipe.image }} style={styles.image} resizeMode="cover" />
+          <RecipeActions
+            id={String(id ?? '')}
+            isMyRecipe={false}
+            isFavorited={isFavorited}
+            isWantToTry={isWantToTry}
+            onFavorite={toggleFavorite}
+            onWantToTry={toggleWantToTry}
+            containerStyle={styles.detailActions}
+          />
+        </View>
       ) : null}
 
       {recipe.readyInMinutes ? <Text style={styles.metaText}>⏱ {recipe.readyInMinutes} min</Text> : null}
@@ -117,7 +131,9 @@ const styles = StyleSheet.create({
   backRow: { marginTop: 36, marginBottom: 12 },
   backBtn: { color: '#0f766e', fontWeight: '700', fontSize: 16 },
   title: { fontSize: 24, fontWeight: '800', color: '#115e59', marginBottom: 14 },
-  image: { width: '100%', height: 220, borderRadius: 14, marginBottom: 14 },
+  imageWrap: { marginBottom: 14 },
+  image: { width: '100%', height: 220, borderRadius: 14 },
+  detailActions: { top: 10, right: 10 },
   metaText: { color: '#5e6a63', fontWeight: '600', marginBottom: 20 },
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   servingsRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },

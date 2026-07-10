@@ -55,3 +55,26 @@ Before starting non-trivial work, especially in an unfamiliar part of the codeba
 - **Update, don't just append.** If a note here is outdated or wrong, fix or remove it rather than adding a contradicting note below it.
 - **Only write things that generalize.** Task-specific notes belong in commit messages or PR descriptions, not here.
 - **Prefer pointers over duplication.** Link to the relevant file/dir instead of copying code or explaining logic that's clear from reading the file itself.
+
+## Subagents
+
+If you notice a recurring task that would benefit from a dedicated subagent (e.g. a specialized reviewer, tester, or domain-specific helper), proactively create one in `.claude/agents/`. Don't wait to be asked — if you recognize a pattern where a focused subagent would improve quality or efficiency, define it.
+
+When creating a subagent:
+- Give it a clear, narrow purpose (single responsibility)
+- Use a descriptive filename matching the agent's role (e.g. `test-runner.md`, `code-reviewer.md`)
+- Include a concise system prompt defining its scope, tools it should use, and when it should be invoked
+- Mention the new agent to me after creating it, and explain why you thought it was needed
+
+## Skills
+
+If you notice a repeatable workflow, convention, or piece of domain knowledge worth capturing, proactively create or update a skill in `.claude/skills/`.
+
+Note: skills live one-per-folder, not in a single file — `.claude/skills/<skill-name>/SKILL.md`.
+
+When creating or updating a skill:
+- Give the folder a clear, descriptive name matching what it does (e.g. `.claude/skills/api-conventions/SKILL.md`)
+- Start the file with YAML frontmatter (`name`, `description`) — the `description` is what determines when the skill gets auto-loaded, so make it specific about what it covers and when to use it
+- Keep the SKILL.md body focused; move detailed reference material into a `references/` subfolder and reusable scripts into `scripts/` so the main file stays lean
+- If a skill already exists for the topic, update it in place rather than creating a duplicate
+- Mention the new/updated skill to me after saving it, and explain why you thought it was needed

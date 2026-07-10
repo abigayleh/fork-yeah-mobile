@@ -1,0 +1,12 @@
+env: load .env
+env: export EXPO_PUBLIC_SPOONACULAR_API_KEY
+Starting project at /Users/abigaylehickey/Github/fork-yeah-mobile
+Starting Metro Bundler
+
+› Opening exp://192.168.0.79:8083 on iPhone 16 Pro
+Waiting on http://localhost:8083
+
+Logs for your project will appear below.
+iOS Bundled 8976ms index.ts (1944 modules)
+iOS Bundled 68ms index.ts (1 module)
+iOS Bundled 68ms index.ts (1 module)

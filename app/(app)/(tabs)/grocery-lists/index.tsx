@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
-import { collection, getDocs, addDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { collection, getDocs, addDoc, deleteDoc, doc, setDoc, query, where } from 'firebase/firestore';
 import { auth, db } from '../../../../lib/firebase';
+import GroceryListCard from '../../../../components/GroceryListCard';
+import NamePromptModal from '../../../../components/NamePromptModal';
+import type { GroceryItem } from '../../../../hooks/useGroceryItemsEditor';
 
-type GroceryList = { id: string; name: string; items: { name: string; checked: boolean }[] };
+type GroceryList = { id: string; name: string; items: GroceryItem[] };
 
 export default function GroceryListsScreen() {
-  const router = useRouter();
   const [lists, setLists] = useState<GroceryList[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [createOpen, setCreateOpen] = useState(false);
+  const [renamingList, setRenamingList] = useState<GroceryList | null>(null);
 
   const loadLists = async () => {
     const user = auth.currentUser;
@@ -18,7 +22,10 @@ export default function GroceryListsScreen() {
     try {
       const q = query(collection(db, 'groceryLists'), where('userId', '==', user.uid));
       const snap = await getDocs(q);
-      setLists(snap.docs.map((d) => ({ id: d.id, ...d.data() } as GroceryList)));
+      setLists(snap.docs.map((d) => {
+        const data = d.data();
+        return { id: d.id, name: data.name ?? '', items: Array.isArray(data.items) ? data.items : [] };
+      }));
     } finally {
       setLoading(false);
     }
@@ -26,38 +33,46 @@ export default function GroceryListsScreen() {
 
   useEffect(() => { loadLists(); }, []);
 
-  const handleCreate = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
-    try {
-      const ref = await addDoc(collection(db, 'groceryLists'), {
-        name: `List ${Date.now()}`,
-        userId: user.uid,
-        items: [],
-      });
-      router.push(`/(app)/grocery-lists/${ref.id}`);
-    } catch {
-      Alert.alert('Error', 'Could not create grocery list.');
-    }
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
-  const handleDelete = (id: string) => {
-    Alert.alert('Delete List', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete', style: 'destructive', onPress: async () => {
-          await deleteDoc(doc(db, 'groceryLists', id));
-          setLists((prev) => prev.filter((l) => l.id !== id));
-        },
-      },
-    ]);
+  const handleCreate = async (name: string) => {
+    const user = auth.currentUser;
+    if (!user) return;
+    setCreateOpen(false);
+    const ref = await addDoc(collection(db, 'groceryLists'), { name, userId: user.uid, items: [] });
+    setLists((prev) => [...prev, { id: ref.id, name, items: [] }]);
+    setExpandedIds((prev) => new Set(prev).add(ref.id));
+  };
+
+  const handleRename = async (name: string) => {
+    if (!renamingList) return;
+    await setDoc(doc(db, 'groceryLists', renamingList.id), { name }, { merge: true });
+    setLists((prev) => prev.map((l) => (l.id === renamingList.id ? { ...l, name } : l)));
+    setRenamingList(null);
+  };
+
+  const handleDelete = async (id: string) => {
+    await deleteDoc(doc(db, 'groceryLists', id));
+    setLists((prev) => prev.filter((l) => l.id !== id));
+  };
+
+  const handleSaveItems = async (id: string, items: GroceryItem[]) => {
+    await setDoc(doc(db, 'groceryLists', id), { items }, { merge: true });
+    setLists((prev) => prev.map((l) => (l.id === id ? { ...l, items } : l)));
   };
 
   return (
     <View style={styles.page}>
       <View style={styles.header}>
         <Text style={styles.heading}>Grocery Lists</Text>
-        <TouchableOpacity style={styles.createBtn} onPress={handleCreate}>
+        <TouchableOpacity style={styles.createBtn} onPress={() => setCreateOpen(true)}>
           <Text style={styles.createBtnText}>+ New List</Text>
         </TouchableOpacity>
       </View>
@@ -65,22 +80,42 @@ export default function GroceryListsScreen() {
       {loading ? (
         <ActivityIndicator style={styles.loader} size="large" color="#0f766e" />
       ) : (
-        <FlatList
-          data={lists}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.listItem} onPress={() => router.push(`/(app)/grocery-lists/${item.id}`)}>
-              <Text style={styles.listName}>{item.name}</Text>
-              <Text style={styles.listMeta}>{item.items?.length ?? 0} items</Text>
-              <TouchableOpacity onPress={() => handleDelete(item.id)}>
-                <Text style={styles.deleteBtn}>Delete</Text>
-              </TouchableOpacity>
-            </TouchableOpacity>
+        <ScrollView contentContainerStyle={styles.list}>
+          {lists.length === 0 ? (
+            <Text style={styles.emptyText}>No grocery lists yet. Create one!</Text>
+          ) : (
+            lists.map((item) => (
+              <GroceryListCard
+                key={item.id}
+                list={item}
+                expanded={expandedIds.has(item.id)}
+                onToggleExpand={() => toggleExpanded(item.id)}
+                onRenameList={() => setRenamingList(item)}
+                onDeleteList={() => handleDelete(item.id)}
+                onSaveItems={(items) => handleSaveItems(item.id, items)}
+              />
+            ))
           )}
-          ListEmptyComponent={<Text style={styles.emptyText}>No grocery lists yet. Create one!</Text>}
-        />
+        </ScrollView>
       )}
+
+      <NamePromptModal
+        visible={createOpen}
+        title="New Grocery List"
+        placeholder="e.g. Weekly Groceries"
+        confirmLabel="Create"
+        onCancel={() => setCreateOpen(false)}
+        onConfirm={handleCreate}
+      />
+
+      <NamePromptModal
+        visible={!!renamingList}
+        title="Rename Grocery List"
+        initialValue={renamingList?.name}
+        confirmLabel="Rename"
+        onCancel={() => setRenamingList(null)}
+        onConfirm={handleRename}
+      />
     </View>
   );
 }
@@ -93,9 +128,5 @@ const styles = StyleSheet.create({
   createBtnText: { color: '#fff', fontWeight: '700' },
   loader: { marginTop: 40 },
   list: { paddingHorizontal: 16, paddingBottom: 20 },
-  listItem: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#e4d9c5' },
-  listName: { flex: 1, fontWeight: '700', color: '#1f2421', fontSize: 16 },
-  listMeta: { color: '#5e6a63', marginRight: 12 },
-  deleteBtn: { color: '#9f1239', fontWeight: '700' },
   emptyText: { textAlign: 'center', color: '#5e6a63', marginTop: 40 },
 });
