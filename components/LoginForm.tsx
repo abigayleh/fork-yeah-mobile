@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Link } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
+import AppleSignInButton from './AppleSignInButton';
 
 export default function LoginForm() {
   const [email, setEmail] = useState('');
@@ -55,6 +56,8 @@ export default function LoginForm() {
       <TouchableOpacity style={styles.secondaryBtn} onPress={handleGoogleLogin}>
         <Text style={styles.secondaryBtnText}>Log In with Google</Text>
       </TouchableOpacity>
+
+      <AppleSignInButton />
 
       <Text style={styles.footerText}>
         Need an account?{' '}

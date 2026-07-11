@@ -6,10 +6,13 @@ import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
   GoogleAuthProvider,
+  OAuthProvider,
   signInWithCredential,
   type User,
 } from 'firebase/auth';
 import * as Google from 'expo-auth-session/providers/google';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
 import * as WebBrowser from 'expo-web-browser';
 import { auth } from '../lib/firebase';
 import { useUserDataContext } from '../hooks/useUserDataContext';
@@ -23,6 +26,7 @@ type AuthContextType = ReturnType<typeof useUserDataContext> &
     user: User | null;
     loading: boolean;
     signInWithGoogle: () => Promise<void>;
+    signInWithApple: () => Promise<void>;
     signUpWithEmail: (email: string, password: string) => Promise<void>;
     signInWithEmail: (email: string, password: string) => Promise<void>;
     logOut: () => Promise<void>;
@@ -80,6 +84,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await promptGoogleAsync();
   };
 
+  const signInWithApple = async () => {
+    const rawNonce = Crypto.randomUUID();
+    const hashedNonce = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      rawNonce
+    );
+    const appleCredential = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+      nonce: hashedNonce,
+    });
+    if (!appleCredential.identityToken) throw new Error('Apple sign-in failed');
+    const credential = new OAuthProvider('apple.com').credential({
+      idToken: appleCredential.identityToken,
+      rawNonce,
+    });
+    await signInWithCredential(auth, credential);
+  };
+
   const signUpWithEmail = async (email: string, password: string) => {
     await createUserWithEmailAndPassword(auth, email, password);
   };
@@ -102,6 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         loading,
         signInWithGoogle,
+        signInWithApple,
         signUpWithEmail,
         signInWithEmail,
         logOut,

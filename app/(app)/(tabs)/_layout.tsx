@@ -10,6 +10,7 @@ const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   'meal-planner': 'calendar',
   'grocery-lists': 'cart',
   'family': 'people',
+  'settings': 'settings',
 };
 
 export default function TabsLayout() {
@@ -40,6 +41,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="meal-planner" options={{ title: 'Meal Plan' }} />
       <Tabs.Screen name="grocery-lists" options={{ title: 'Groceries' }} />
       <Tabs.Screen name="family" options={{ title: 'Family' }} />
+      <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
     </Tabs>
   );
 }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Link } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
+import AppleSignInButton from '../../components/AppleSignInButton';
 
 export default function SignUpScreen() {
   const [email, setEmail] = useState('');
@@ -52,6 +53,8 @@ export default function SignUpScreen() {
         <TouchableOpacity style={styles.secondaryBtn} onPress={handleGoogleSignUp}>
           <Text style={styles.secondaryBtnText}>Sign Up with Google</Text>
         </TouchableOpacity>
+
+        <AppleSignInButton />
 
         <Text style={styles.footerText}>
           Already have an account?{' '}

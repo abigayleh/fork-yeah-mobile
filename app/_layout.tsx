@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import LoginForm from '../components/LoginForm';
+import LockGate from '../components/LockGate';
 
 const queryClient = new QueryClient();
 
@@ -56,7 +57,9 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <RootNavigator />
+          <LockGate>
+            <RootNavigator />
+          </LockGate>
         </AuthProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>
