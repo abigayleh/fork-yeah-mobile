@@ -50,7 +50,7 @@ export default function FamilyScreen() {
     setError('');
     try {
       const result = await inviteFamilyMember(inviteEmail.trim());
-      setSuccessMessage(`Invitation created for ${result.invitedEmail}. Share the invite token: ${result.invitationToken}`);
+      setSuccessMessage(`Invitation email sent to ${result.invitedEmail}.`);
       setInviteOpen(false);
       setInviteEmail('');
       await loadFamily();

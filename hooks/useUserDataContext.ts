@@ -3,6 +3,8 @@ import { arrayRemove, arrayUnion, collection, doc, getDoc, getDocs, query, setDo
 import { type User } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://whats-for-dinnner.netlify.app';
+
 const generateUUID = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -193,15 +195,31 @@ export function useUserDataContext(user: User | null) {
     const familyId = String(profile.familyId);
     const invitationToken = generateUUID();
 
+    const inviterName = profile.name || 'A family member';
     const invitationRef = doc(collection(db, 'invitations'));
     await setDoc(invitationRef, {
       email: normalizedEmail,
       familyId,
       invitationToken,
-      inviterName: profile.name || 'A family member',
+      name: inviterName,
       createdAt: new Date(),
       status: 'pending',
     });
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/sendFamilyInvitation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: normalizedEmail, inviterName, invitationToken }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Failed to send invitation email');
+      }
+    } catch (emailError) {
+      console.error('Error sending invitation email:', emailError);
+      throw new Error('Invitation created but email could not be sent. Please share the link manually.');
+    }
 
     return { invitedEmail: normalizedEmail, familyId, invitationToken };
   };
