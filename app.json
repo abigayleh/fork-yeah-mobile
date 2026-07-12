@@ -12,7 +12,15 @@
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "forkyeah",
+              "com.googleusercontent.apps.888702110970-ua103f1surn435l2tpsdk6v20ic90gf1"
+            ]
+          }
+        ]
       }
     },
     "android": {

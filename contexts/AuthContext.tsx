@@ -52,10 +52,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   const [, googleResponse, promptGoogleAsync] = Google.useAuthRequest({
-    // Replace with your iOS/Android client IDs from Google Cloud Console
-    iosClientId: '',
+    iosClientId:
+      '888702110970-ua103f1surn435l2tpsdk6v20ic90gf1.apps.googleusercontent.com',
+    // TODO: add androidClientId when the Android OAuth client is created
     androidClientId: '',
-    webClientId: '888702110970-web.apps.googleusercontent.com',
+    webClientId:
+      '888702110970-lv47hhnud0nmvlh34al6ig9l7k3cerq3.apps.googleusercontent.com',
   });
 
   useEffect(() => {
