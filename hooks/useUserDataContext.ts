@@ -207,7 +207,7 @@ export function useUserDataContext(user: User | null) {
     });
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/sendFamilyInvitation`, {
+      const response = await fetch(`${API_BASE_URL}/api/emails/sendFamilyInvitation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: normalizedEmail, inviterName, invitationToken }),
