@@ -5,18 +5,39 @@ import { useAuth } from '../../../contexts/AuthContext';
 import SettingsPanel from '../../../components/SettingsPanel';
 
 type FamilyMember = { id?: string; userId?: string; name?: string; email?: string };
+type PendingInvitation = { id: string; email: string };
+
+// Only surface still-actionable invites: pending, with an expiresAt that hasn't passed.
+// Invites with no expiresAt (legacy) or already expired are hidden.
+const toPendingInvitations = (invitations: unknown): PendingInvitation[] => {
+  if (!Array.isArray(invitations)) return [];
+  const now = Date.now();
+  return invitations
+    .map((invite) => {
+      if (!invite || typeof invite !== 'object') return null;
+      const c = invite as { id?: unknown; email?: unknown; status?: unknown; expiresAt?: { toMillis?: () => number } };
+      if (c.status !== 'pending') return null;
+      const expiresAtMs = c.expiresAt?.toMillis?.() ?? null;
+      if (expiresAtMs === null || expiresAtMs < now) return null;
+      const id = String(c.id || '').trim();
+      const email = String(c.email || '').trim();
+      if (!id || !email) return null;
+      return { id, email };
+    })
+    .filter((invite): invite is PendingInvitation => invite !== null);
+};
 
 export default function FamilyScreen() {
-  const { user, getCurrentUserProfile, getFamilyForCurrentUser, getUsersByIds, inviteFamilyMember, removeFamilyMember } = useAuth();
+  const { user, getCurrentUserProfile, getFamilyForCurrentUser, getUsersByIds, inviteFamilyMember, getFamilyInvitations, removeFamilyMember } = useAuth();
 
   const [members, setMembers] = useState<FamilyMember[]>([]);
+  const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviting, setInviting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
 
   const [removingId, setRemovingId] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -27,7 +48,7 @@ export default function FamilyScreen() {
     setError('');
     try {
       const profile = await getCurrentUserProfile();
-      if (!profile?.familyId) { setMembers([]); return; }
+      if (!profile?.familyId) { setMembers([]); setPendingInvitations([]); return; }
 
       const familyData = await getFamilyForCurrentUser();
       const userIds: string[] = Array.isArray(familyData?.users)
@@ -38,6 +59,7 @@ export default function FamilyScreen() {
 
       const resolved = await getUsersByIds(userIds);
       setMembers((resolved ?? []) as FamilyMember[]);
+      setPendingInvitations(toPendingInvitations(await getFamilyInvitations()));
     } catch (e) {
       setError((e as { message?: string }).message ?? 'Could not load family.');
     } finally {
@@ -52,8 +74,7 @@ export default function FamilyScreen() {
     setInviting(true);
     setError('');
     try {
-      const result = await inviteFamilyMember(inviteEmail.trim());
-      setSuccessMessage(`Invitation email sent to ${result.invitedEmail}.`);
+      await inviteFamilyMember(inviteEmail.trim());
       setInviteOpen(false);
       setInviteEmail('');
       await loadFamily();
@@ -99,7 +120,6 @@ export default function FamilyScreen() {
       <Text style={styles.subtitle}>Family members share saved recipes and meal plans.</Text>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
-      {successMessage ? <Text style={styles.successText}>{successMessage}</Text> : null}
 
       {loading ? (
         <ActivityIndicator style={styles.loader} size="large" color="#0f766e" />
@@ -135,11 +155,26 @@ export default function FamilyScreen() {
             );
           }}
           ListEmptyComponent={<Text style={styles.emptyText}>No family members yet.</Text>}
+          ListFooterComponent={
+            pendingInvitations.length > 0 ? (
+              <View style={styles.pendingSection}>
+                <Text style={styles.pendingTitle}>Pending Invitations</Text>
+                {pendingInvitations.map((invite) => (
+                  <View key={invite.id} style={styles.memberRow}>
+                    <View style={styles.memberInfo}>
+                      <Text style={styles.memberEmail}>{invite.email}</Text>
+                    </View>
+                    <Text style={styles.pendingBadge}>Pending</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null
+          }
         />
       )}
 
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.inviteBtn} onPress={() => { setError(''); setSuccessMessage(''); setInviteEmail(''); setInviteOpen(true); }}>
+        <TouchableOpacity style={styles.inviteBtn} onPress={() => { setError(''); setInviteEmail(''); setInviteOpen(true); }}>
           <Text style={styles.inviteBtnText}>+ Add Family Member</Text>
         </TouchableOpacity>
       </View>
@@ -186,8 +221,10 @@ const styles = StyleSheet.create({
   heading: { fontSize: 26, fontWeight: '800', color: '#115e59' },
   subtitle: { color: '#5e6a63', paddingHorizontal: 16, marginBottom: 16 },
   errorText: { color: '#9f1239', paddingHorizontal: 16, marginBottom: 8 },
-  successText: { color: '#0f766e', paddingHorizontal: 16, marginBottom: 8 },
   loader: { marginTop: 40 },
+  pendingSection: { marginTop: 20 },
+  pendingTitle: { fontSize: 15, fontWeight: '800', color: '#115e59', marginBottom: 4 },
+  pendingBadge: { backgroundColor: '#fef3c7', color: '#92400e', fontWeight: '700', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, fontSize: 12, overflow: 'hidden' },
   list: { paddingHorizontal: 16, paddingBottom: 20 },
   memberRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#e4d9c5' },
   memberInfo: { flex: 1 },

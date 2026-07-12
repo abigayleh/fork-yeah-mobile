@@ -196,13 +196,17 @@ export function useUserDataContext(user: User | null) {
     const invitationToken = generateUUID();
 
     const inviterName = profile.name || 'A family member';
+    // Invitations expire 7 days after creation.
+    const createdAt = new Date();
+    const expiresAt = new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000);
     const invitationRef = doc(collection(db, 'invitations'));
     await setDoc(invitationRef, {
       email: normalizedEmail,
       familyId,
       invitationToken,
       name: inviterName,
-      createdAt: new Date(),
+      createdAt,
+      expiresAt,
       status: 'pending',
     });
 
@@ -222,6 +226,22 @@ export function useUserDataContext(user: User | null) {
     }
 
     return { invitedEmail: normalizedEmail, familyId, invitationToken };
+  };
+
+  // All invitations for the current user's family (used to show pending invites).
+  const getFamilyInvitations = async () => {
+    const profile = await getCurrentUserProfile();
+    if (!profile?.familyId) return [];
+    const invitationsRef = collection(db, 'invitations');
+    const snap = await getDocs(query(invitationsRef, where('familyId', '==', profile.familyId)));
+    return snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+  };
+
+  // Mark an invitation as accepted after the invited user joins the family.
+  const markInvitationAccepted = async (invitationId: string) => {
+    const id = String(invitationId || '').trim();
+    if (!id) return;
+    await setDoc(doc(db, 'invitations', id), { status: 'accepted', acceptedAt: new Date() }, { merge: true });
   };
 
   const removeFamilyMember = async (memberUserId: string) => {
@@ -267,6 +287,8 @@ export function useUserDataContext(user: User | null) {
     getFamilyForCurrentUser,
     getUsersByIds,
     inviteFamilyMember,
+    getFamilyInvitations,
+    markInvitationAccepted,
     removeFamilyMember,
   };
 }
