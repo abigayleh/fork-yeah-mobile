@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import LoginForm from '../components/LoginForm';
 import LockGate from '../components/LockGate';
+import OnboardingGate from '../components/OnboardingGate';
 
 const queryClient = new QueryClient();
 
@@ -58,7 +59,9 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <LockGate>
-            <RootNavigator />
+            <OnboardingGate>
+              <RootNavigator />
+            </OnboardingGate>
           </LockGate>
         </AuthProvider>
       </QueryClientProvider>
