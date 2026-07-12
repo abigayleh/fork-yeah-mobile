@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Modal } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../contexts/AuthContext';
+import SettingsPanel from '../../../components/SettingsPanel';
 
 type FamilyMember = { id?: string; userId?: string; name?: string; email?: string };
 
@@ -17,6 +19,7 @@ export default function FamilyScreen() {
   const [successMessage, setSuccessMessage] = useState('');
 
   const [removingId, setRemovingId] = useState('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const loadFamily = async () => {
     if (!user) { setLoading(false); return; }
@@ -116,10 +119,16 @@ export default function FamilyScreen() {
                   {item.email ? <Text style={styles.memberEmail}>{item.email}</Text> : null}
                 </View>
                 {isMe ? (
-                  <Text style={styles.youBadge}>You</Text>
+                  <TouchableOpacity onPress={() => setSettingsOpen(true)} hitSlop={8}>
+                    <Ionicons name="settings-outline" size={22} color="#0f766e" />
+                  </TouchableOpacity>
                 ) : (
-                  <TouchableOpacity onPress={() => handleRemove(item)} disabled={isRemoving}>
-                    <Text style={styles.removeBtn}>{isRemoving ? '...' : 'Remove'}</Text>
+                  <TouchableOpacity onPress={() => handleRemove(item)} disabled={isRemoving} hitSlop={8}>
+                    {isRemoving ? (
+                      <ActivityIndicator size="small" color="#9f1239" />
+                    ) : (
+                      <Ionicons name="trash-outline" size={22} color="#9f1239" />
+                    )}
                   </TouchableOpacity>
                 )}
               </View>
@@ -158,6 +167,15 @@ export default function FamilyScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <Modal visible={settingsOpen} transparent animationType="fade" onRequestClose={() => setSettingsOpen(false)}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setSettingsOpen(false)}>
+          <TouchableOpacity style={styles.modalCard} activeOpacity={1}>
+            <Text style={styles.modalTitle}>Settings</Text>
+            <SettingsPanel />
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -175,8 +193,6 @@ const styles = StyleSheet.create({
   memberInfo: { flex: 1 },
   memberName: { fontWeight: '700', color: '#1f2421', fontSize: 15 },
   memberEmail: { color: '#5e6a63', fontSize: 13, marginTop: 2 },
-  youBadge: { backgroundColor: '#ecfdf5', color: '#0f766e', fontWeight: '700', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, fontSize: 12 },
-  removeBtn: { color: '#9f1239', fontWeight: '700' },
   emptyText: { textAlign: 'center', color: '#5e6a63', marginTop: 40 },
   footer: { padding: 16 },
   inviteBtn: { backgroundColor: '#0f766e', borderRadius: 12, padding: 14, alignItems: 'center' },

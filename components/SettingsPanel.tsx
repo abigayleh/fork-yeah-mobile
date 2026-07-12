@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import { View, Text, Switch, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import {
   authenticateBiometric,
   isBiometricLockEnabled,
   isBiometricSupported,
   setBiometricLockEnabled,
-} from '../../../lib/biometric';
+} from '../lib/biometric';
 
-export default function SettingsScreen() {
+export default function SettingsPanel() {
   const { user, logOut } = useAuth();
   const [supported, setSupported] = useState(false);
   const [lockEnabled, setLockEnabled] = useState(false);
@@ -39,11 +39,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <View style={styles.page}>
-      <View style={styles.header}>
-        <Text style={styles.heading}>Settings</Text>
-      </View>
-
+    <View>
       <View style={styles.row}>
         <View style={styles.rowInfo}>
           <Text style={styles.rowTitle}>Face ID unlock</Text>
@@ -64,13 +60,10 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: '#fffaf0' },
-  header: { padding: 16, paddingTop: 56, marginBottom: 4 },
-  heading: { fontSize: 26, fontWeight: '800', color: '#115e59' },
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#e4d9c5' },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#e4d9c5' },
   rowInfo: { flex: 1, paddingRight: 12 },
   rowTitle: { fontWeight: '700', color: '#1f2421', fontSize: 15 },
   rowSubtitle: { color: '#5e6a63', fontSize: 13, marginTop: 2 },
-  logoutBtn: { margin: 16, borderWidth: 1, borderColor: '#e4d9c5', borderRadius: 12, padding: 14, alignItems: 'center', backgroundColor: '#fff' },
+  logoutBtn: { marginTop: 16, borderWidth: 1, borderColor: '#e4d9c5', borderRadius: 12, padding: 14, alignItems: 'center', backgroundColor: '#fff' },
   logoutText: { color: '#9f1239', fontWeight: '700' },
 });
