@@ -3,9 +3,10 @@ import {
   ActivityIndicator, Alert, FlatList, Modal, StyleSheet, Text,
   TextInput, TouchableOpacity, View, ScrollView, Image,
 } from 'react-native';
-import { addDoc, collection, deleteDoc, doc, getDocs, query, where } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc } from 'firebase/firestore';
 import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
 import { auth, db } from '../../../lib/firebase';
+import { fetchDocsForFamily, withCurrentUser } from '../../../lib/familyData';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useSavedRecipesBrowser, SavedRecipe, SavedRecipeSection, FolderItem } from '../../../hooks/useSavedRecipesBrowser';
 
@@ -48,7 +49,7 @@ const toLongDisplayLabel = (dateKey: string) => {
 type MealEntry = { id: string; recipeId: string; title: string; image: string; isMyRecipe: boolean };
 
 export default function MealPlannerScreen() {
-  const { getMyRecipes } = useAuth();
+  const { getMyRecipes, getFamilyUserIdsForCurrentUser } = useAuth();
 
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
   const weekDates = getWeekDates(weekStart);
@@ -69,8 +70,9 @@ export default function MealPlannerScreen() {
     if (!user) { setLoading(false); return; }
     setLoading(true);
     try {
-      const snap = await getDocs(query(collection(db, 'mealPlans'), where('userId', '==', user.uid)));
-      const rawEntries = snap.docs.map((d) => ({ id: d.id, data: d.data() }));
+      const familyUserIds = withCurrentUser(user.uid, await getFamilyUserIdsForCurrentUser());
+      const docs = await fetchDocsForFamily('mealPlans', familyUserIds);
+      const rawEntries = docs.map(({ id, ...data }) => ({ id: id as string, data }));
 
       const myIds = Array.from(new Set(
         rawEntries

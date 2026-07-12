@@ -12,6 +12,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
+import { fetchDocsForFamily, withCurrentUser } from '../lib/familyData';
 
 type RecipeRef = { recipeId: string; isMyRecipe: boolean };
 
@@ -33,15 +34,9 @@ export function useRecipeApi(getFamilyUserIdsForCurrentUser: () => Promise<strin
       queryClient.invalidateQueries({ queryKey: ['myRecipeById'] }),
     ]);
 
-  const invalidateMealPlanQueries = () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['userMealPlans'] }),
-      queryClient.invalidateQueries({ queryKey: ['mealPlans'] }),
-    ]);
-
   const resolveFamilyUserIds = async (currentUserId: string) => {
     const ids = await getFamilyUserIdsForCurrentUser();
-    return Array.from(new Set([currentUserId, ...ids].map((id) => String(id || '').trim()).filter(Boolean)));
+    return withCurrentUser(currentUserId, ids);
   };
 
   const addRecipeToUser = async (
@@ -88,27 +83,7 @@ export function useRecipeApi(getFamilyUserIdsForCurrentUser: () => Promise<strin
     const familyUserIds = await resolveFamilyUserIds(user.uid);
     return queryClient.fetchQuery({
       queryKey: ['userRecipes', { userId: user.uid, familyUserIds }],
-      queryFn: async () => {
-        const ref = collection(db, 'userRecipes');
-        const snaps = await Promise.all(
-          familyUserIds.map((uid) => getDocs(query(ref, where('userId', '==', uid))))
-        );
-        return snaps.flatMap((s) => s.docs.map((d) => ({ id: d.id, ...d.data() })));
-      },
-      staleTime: 60_000,
-    });
-  };
-
-  const getUserMealPlans = async () => {
-    const user = auth.currentUser;
-    if (!user) return [];
-    return queryClient.fetchQuery({
-      queryKey: ['userMealPlans', { userId: user.uid }],
-      queryFn: async () => {
-        const ref = collection(db, 'userMealPlans');
-        const snap = await getDocs(query(ref, where('userId', '==', user.uid)));
-        return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      },
+      queryFn: () => fetchDocsForFamily('userRecipes', familyUserIds),
       staleTime: 60_000,
     });
   };
@@ -119,13 +94,7 @@ export function useRecipeApi(getFamilyUserIdsForCurrentUser: () => Promise<strin
     const familyUserIds = await resolveFamilyUserIds(user.uid);
     return queryClient.fetchQuery({
       queryKey: ['userFolders', { userId: user.uid, familyUserIds }],
-      queryFn: async () => {
-        const ref = collection(db, 'folders');
-        const snaps = await Promise.all(
-          familyUserIds.map((uid) => getDocs(query(ref, where('userId', '==', uid))))
-        );
-        return snaps.flatMap((s) => s.docs.map((d) => ({ id: d.id, ...d.data() })));
-      },
+      queryFn: () => fetchDocsForFamily('folders', familyUserIds),
       staleTime: 60_000,
     });
   };
@@ -199,13 +168,7 @@ export function useRecipeApi(getFamilyUserIdsForCurrentUser: () => Promise<strin
     const familyUserIds = await resolveFamilyUserIds(user.uid);
     return queryClient.fetchQuery({
       queryKey: ['myRecipes', { userId: user.uid, familyUserIds }],
-      queryFn: async () => {
-        const ref = collection(db, 'recipes');
-        const snaps = await Promise.all(
-          familyUserIds.map((uid) => getDocs(query(ref, where('userId', '==', uid))))
-        );
-        return snaps.flatMap((s) => s.docs.map((d) => ({ id: d.id, ...d.data() })));
-      },
+      queryFn: () => fetchDocsForFamily('recipes', familyUserIds),
       staleTime: 60_000,
     });
   };
@@ -263,19 +226,10 @@ export function useRecipeApi(getFamilyUserIdsForCurrentUser: () => Promise<strin
     await Promise.all([invalidateMyRecipeQueries(), invalidateUserRecipeQueries(), invalidateFolderQueries()]);
   };
 
-  const addMealPlanToUser = async (data: Record<string, unknown>, mealPlanName: string, groceryList: unknown) => {
-    const user = auth.currentUser;
-    if (!user) return;
-    const docId = `${user.uid}_${mealPlanName.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
-    await setDoc(doc(db, 'userMealPlans', docId), { title: mealPlanName, userId: user.uid, groceryList, ...data }, { merge: true });
-    await invalidateMealPlanQueries();
-  };
-
   return {
     addRecipeToUser,
     getUserRecipeById,
     getUserRecipes,
-    getUserMealPlans,
     getUserFolders,
     createUserFolder,
     updateUserFolderName,
@@ -288,6 +242,5 @@ export function useRecipeApi(getFamilyUserIdsForCurrentUser: () => Promise<strin
     addMyRecipe,
     updateMyRecipe,
     deleteMyRecipe,
-    addMealPlanToUser,
   };
 }

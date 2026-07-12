@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { collection, getDocs, addDoc, deleteDoc, doc, setDoc, query, where } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../../../lib/firebase';
+import { fetchDocsForFamily, withCurrentUser } from '../../../../lib/familyData';
+import { useAuth } from '../../../../contexts/AuthContext';
 import GroceryListCard from '../../../../components/GroceryListCard';
 import NamePromptModal from '../../../../components/NamePromptModal';
 import type { GroceryItem } from '../../../../hooks/useGroceryItemsEditor';
@@ -14,18 +16,20 @@ export default function GroceryListsScreen() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [createOpen, setCreateOpen] = useState(false);
   const [renamingList, setRenamingList] = useState<GroceryList | null>(null);
+  const { getFamilyUserIdsForCurrentUser } = useAuth();
 
   const loadLists = async () => {
     const user = auth.currentUser;
     if (!user) return;
     setLoading(true);
     try {
-      const q = query(collection(db, 'groceryLists'), where('userId', '==', user.uid));
-      const snap = await getDocs(q);
-      setLists(snap.docs.map((d) => {
-        const data = d.data();
-        return { id: d.id, name: data.name ?? '', items: Array.isArray(data.items) ? data.items : [] };
-      }));
+      const familyUserIds = withCurrentUser(user.uid, await getFamilyUserIdsForCurrentUser());
+      const docs = await fetchDocsForFamily('groceryLists', familyUserIds);
+      setLists(docs.map((data) => ({
+        id: data.id as string,
+        name: (data.name as string) ?? '',
+        items: Array.isArray(data.items) ? (data.items as GroceryItem[]) : [],
+      })));
     } finally {
       setLoading(false);
     }
