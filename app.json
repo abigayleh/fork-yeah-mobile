@@ -21,7 +21,8 @@
             ]
           }
         ]
-      }
+      },
+      "appleTeamId": "KXZX65W77T"
     },
     "android": {
       "adaptiveIcon": {
@@ -48,6 +49,14 @@
         "expo-local-authentication",
         {
           "faceIDPermission": "Allow Fork Yeah to use Face ID to unlock the app."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Fork Yeah needs access to your photo library so you can add a photo to a recipe you create — for example, a picture of the finished dish to show on the recipe card.",
+          "cameraPermission": false,
+          "microphonePermission": false
         }
       ]
     ],
