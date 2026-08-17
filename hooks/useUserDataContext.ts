@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { arrayRemove, arrayUnion, collection, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from 'firebase/firestore';
+import { arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from 'firebase/firestore';
 import { type User } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 
@@ -112,7 +112,7 @@ export function useUserDataContext(user: User | null) {
     return next;
   };
 
-  const getFamilyForCurrentUser = async () => {
+  const getFamilyForCurrentUser = async (): Promise<Record<string, unknown> | null> => {
     const profile = await getCurrentUserProfile();
     const familyId = profile?.familyId;
     if (!familyId) return null;
@@ -276,6 +276,39 @@ export function useUserDataContext(user: User | null) {
     }
   };
 
+  // Permanently delete everything the user owns, for account deletion. Removes the
+  // user from their family (deleting an emptied family and its invitations), then
+  // deletes every document keyed to their UID and finally their profile doc.
+  const deleteAllUserData = async (uid: string) => {
+    const id = String(uid || '').trim();
+    if (!id) throw new Error('Missing user id.');
+
+    const profileSnap = await getDoc(doc(db, 'users', id));
+    const familyId = profileSnap.exists() ? String(profileSnap.data().familyId || '').trim() : '';
+    if (familyId) {
+      const familyRef = doc(db, 'families', familyId);
+      const familySnap = await getDoc(familyRef);
+      if (familySnap.exists()) {
+        const members: string[] = Array.isArray(familySnap.data().users) ? familySnap.data().users : [];
+        if (members.filter((u) => u !== id).length === 0) {
+          const invSnap = await getDocs(query(collection(db, 'invitations'), where('familyId', '==', familyId)));
+          await Promise.all(invSnap.docs.map((d) => deleteDoc(d.ref)));
+          await deleteDoc(familyRef);
+        } else {
+          await updateDoc(familyRef, { users: arrayRemove(id) });
+        }
+      }
+    }
+
+    const owned = ['userRecipes', 'recipes', 'mealPlans', 'groceryLists', 'folders'];
+    for (const name of owned) {
+      const snap = await getDocs(query(collection(db, name), where('userId', '==', id)));
+      await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+    }
+
+    await deleteDoc(doc(db, 'users', id));
+  };
+
   return {
     currentUserProfile,
     familyUserIds,
@@ -290,5 +323,6 @@ export function useUserDataContext(user: User | null) {
     getFamilyInvitations,
     markInvitationAccepted,
     removeFamilyMember,
+    deleteAllUserData,
   };
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, Switch, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
+import DeleteAccount from './DeleteAccount';
 import {
   authenticateBiometric,
   isBiometricLockEnabled,
@@ -51,9 +52,12 @@ export default function SettingsPanel() {
       </View>
 
       {user ? (
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogOut}>
-          <Text style={styles.logoutText}>Log Out</Text>
-        </TouchableOpacity>
+        <>
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogOut}>
+            <Text style={styles.logoutText}>Log Out</Text>
+          </TouchableOpacity>
+          <DeleteAccount />
+        </>
       ) : null}
     </View>
   );
