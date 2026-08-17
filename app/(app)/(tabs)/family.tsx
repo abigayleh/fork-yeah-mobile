@@ -7,9 +7,11 @@ import SettingsPanel from '../../../components/SettingsPanel';
 type FamilyMember = { id?: string; userId?: string; name?: string; email?: string };
 type PendingInvitation = { id: string; email: string };
 
-// Only surface still-actionable invites: pending, with an expiresAt that hasn't passed.
+// Only surface still-actionable invites: pending, with an expiresAt that hasn't
+// passed, and whose invitee isn't already a family member (the accept flow marks
+// invites accepted best-effort, so a stale 'pending' can outlive the join).
 // Invites with no expiresAt (legacy) or already expired are hidden.
-const toPendingInvitations = (invitations: unknown): PendingInvitation[] => {
+const toPendingInvitations = (invitations: unknown, memberEmails: Set<string>): PendingInvitation[] => {
   if (!Array.isArray(invitations)) return [];
   const now = Date.now();
   return invitations
@@ -22,6 +24,7 @@ const toPendingInvitations = (invitations: unknown): PendingInvitation[] => {
       const id = String(c.id || '').trim();
       const email = String(c.email || '').trim();
       if (!id || !email) return null;
+      if (memberEmails.has(email.toLowerCase())) return null;
       return { id, email };
     })
     .filter((invite): invite is PendingInvitation => invite !== null);
@@ -57,9 +60,12 @@ export default function FamilyScreen() {
             .filter(Boolean)
         : [];
 
-      const resolved = await getUsersByIds(userIds);
-      setMembers((resolved ?? []) as FamilyMember[]);
-      setPendingInvitations(toPendingInvitations(await getFamilyInvitations()));
+      const resolvedMembers = (await getUsersByIds(userIds) ?? []) as FamilyMember[];
+      setMembers(resolvedMembers);
+      const memberEmails = new Set(
+        resolvedMembers.map((m) => String(m.email || '').trim().toLowerCase()).filter(Boolean)
+      );
+      setPendingInvitations(toPendingInvitations(await getFamilyInvitations(), memberEmails));
     } catch (e) {
       setError((e as { message?: string }).message ?? 'Could not load family.');
     } finally {
