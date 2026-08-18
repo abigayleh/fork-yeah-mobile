@@ -12,6 +12,17 @@ const generateUUID = (): string => {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
+// Legacy families docs whose id isn't the familyId. The security rules deny any
+// list on `families`, so a denial here means "no legacy doc", not a real error.
+const readLegacyFamilyByField = async (familyId: string) => {
+  try {
+    const snap = await getDocs(query(collection(db, 'families'), where('familyId', '==', familyId)));
+    return snap.empty ? null : { id: snap.docs[0].id, data: snap.docs[0].data() };
+  } catch {
+    return null;
+  }
+};
+
 export function useUserDataContext(user: User | null) {
   type Profile = Record<string, unknown> & { id?: string; familyId?: string; name?: string };
   const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(null);
@@ -23,17 +34,13 @@ export function useUserDataContext(user: User | null) {
     if (!profile?.familyId) return normalizedId ? [normalizedId] : [];
 
     const familyId = String(profile.familyId).trim();
-    const familiesRef = collection(db, 'families');
-    const familyQuery = query(familiesRef, where('familyId', '==', familyId));
-    const familyQuerySnap = await getDocs(familyQuery);
-
-    let familyData: Record<string, unknown> | null = null;
-    if (!familyQuerySnap.empty) {
-      familyData = familyQuerySnap.docs[0].data();
-    } else {
-      const familyRef = doc(db, 'families', familyId);
-      const familySnap = await getDoc(familyRef);
-      familyData = familySnap.exists() ? familySnap.data() : null;
+    // Families are keyed by familyId as the doc id — read it directly. A
+    // collection scan is denied outright by the rules (they can't evaluate
+    // membership on a list), so it's only a best-effort legacy fallback.
+    const familySnap = await getDoc(doc(db, 'families', familyId));
+    let familyData: Record<string, unknown> | null = familySnap.exists() ? familySnap.data() : null;
+    if (!familyData) {
+      familyData = (await readLegacyFamilyByField(familyId))?.data ?? null;
     }
 
     const ids = Array.isArray(familyData?.users) ? (familyData.users as string[]) : [];
@@ -119,10 +126,8 @@ export function useUserDataContext(user: User | null) {
     const familyRef = doc(db, 'families', familyId);
     const familySnap = await getDoc(familyRef);
     if (familySnap.exists()) return { id: familySnap.id, ...familySnap.data() };
-    const q = query(collection(db, 'families'), where('familyId', '==', familyId));
-    const snap = await getDocs(q);
-    if (snap.empty) return null;
-    return { id: snap.docs[0].id, ...snap.docs[0].data() };
+    const legacy = await readLegacyFamilyByField(familyId);
+    return legacy ? { id: legacy.id, ...legacy.data } : null;
   };
 
   const getUsersByIds = async (userIds: string[] = []) => {
