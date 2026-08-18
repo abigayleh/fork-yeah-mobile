@@ -1,0 +1,119 @@
+rules_version = '2';
+
+// PRODUCTION Firestore rules — this file is the deploy target (firebase.json).
+// The emulator/test suite uses firestore.emulator.rules (allow-all) via
+// firebase.emulator.json; the two are intentionally NOT identical.
+//
+// Rollout is phased. Collections marked TODO(phase N) are left permissive on
+// purpose: their write/read paths still run through the unauthenticated client
+// SDK (server routes that re-init the public config) or client-writable docs,
+// so locking them before those migrate to firebase-admin would break the app.
+// Until Phase 3 locks users/families, the family checks below are a real
+// improvement (auth required) but not yet an airtight boundary.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+
+    function familyOf(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.familyId;
+    }
+    function inFamily(fid) {
+      return signedIn() && fid != null
+        && exists(/databases/$(database)/documents/families/$(fid))
+        && (request.auth.uid in get(/databases/$(database)/documents/families/$(fid)).data.users);
+    }
+    // Only reached for docs owned by someone else (isOwner short-circuits first),
+    // so the two get()s here don't run when reading your own data.
+    function sharesFamily(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid)) && inFamily(familyOf(uid));
+    }
+    function canAccessOwned(uid) { return isOwner(uid) || sharesFamily(uid); }
+
+    // --- Phase 1: family-shared recipe data ---
+    // Family members may read and edit shared recipes/folders; only the owner
+    // creates, and userId is frozen on update so an edit can't reassign ownership.
+    // `resource == null` keeps a getDoc of a missing composite id returning
+    // not-found (getMyRecipeById loops over family ids and relies on this) instead
+    // of throwing permission-denied.
+    match /recipes/{id} {
+      allow read:   if resource == null || canAccessOwned(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if canAccessOwned(resource.data.userId)
+                    && request.resource.data.userId == resource.data.userId;
+      allow delete: if canAccessOwned(resource.data.userId);
+    }
+    match /folders/{id} {
+      allow read:   if resource == null || canAccessOwned(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if canAccessOwned(resource.data.userId)
+                    && request.resource.data.userId == resource.data.userId;
+      allow delete: if canAccessOwned(resource.data.userId);
+    }
+    // userRecipes is per-user favorite/rating/notes state: family-readable, but
+    // only ever written by its owner (no cross-user write flow exists).
+    match /userRecipes/{id} {
+      allow read:   if resource == null || canAccessOwned(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isOwner(resource.data.userId)
+                    && request.resource.data.userId == resource.data.userId;
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    // --- Admin-only collections (writes bypass rules; clients get nothing) ---
+    // All reads/writes go through authenticated firebase-admin routes; no client
+    // Firestore path remains for these.
+    match /quickAddItems/{id}  { allow read, write: if false; }
+    match /passwordUpdate/{id} { allow read, write: if false; }
+    // mealPlans + groceryLists: served only by /api/mealPlans and
+    // /api/myGroceryLists* (requireUser + loadFamilyAccess ownership checks).
+    match /mealPlans/{id}      { allow read, write: if false; }
+    match /groceryLists/{id}   { allow read, write: if false; }
+
+    // invitations: written only via firebase-admin; the acceptInvitation token
+    // lookup now reads via admin too, so client reads are gated to family members.
+    // getFamilyInvitations queries where familyId == mine, so the get() below hits
+    // one family doc, cached across the whole query.
+    match /invitations/{id} {
+      allow read:  if signedIn() && inFamily(resource.data.familyId);
+      allow write: if false;
+    }
+
+    // --- Phase 3: family membership (Design A) ---
+    // removeFamilyMember (cross-user writes) and account/family creation on join
+    // run through firebase-admin. What stays client-side: reading your own and
+    // your family members' user docs, and createUserProfile writing your own
+    // profile plus a family you belong to.
+    match /users/{uid} {
+      // Read your own doc, or a family member's. Keyed on the target doc's own
+      // familyId field (no get() on the member's doc) so the `documentId() in`
+      // batch read stays within Firestore's per-query get() budget: every member
+      // shares one family, so the families get() caches to a single call.
+      allow read: if isOwner(uid)
+        || (signedIn() && resource != null && resource.data.familyId != null
+            && exists(/databases/$(database)/documents/families/$(resource.data.familyId))
+            && request.auth.uid in get(/databases/$(database)/documents/families/$(resource.data.familyId)).data.users);
+      allow create: if isOwner(uid);
+      // familyId only changes via admin (join / remove), so freeze it on client
+      // updates once set — a member can't repoint themselves into another family.
+      allow update: if isOwner(uid)
+        && (request.resource.data.familyId == resource.data.familyId || !('familyId' in resource.data));
+      allow delete: if false;
+    }
+
+    // A family is readable only by its members and writable only by a member;
+    // an outsider can neither read one nor add themselves (create only applies to
+    // a not-yet-existing doc, and a member-only update can't be reached by a
+    // non-member). Modifying membership from the browser stays possible for a
+    // member — the app's existing trust posture — but removeFamilyMember's
+    // cross-user writes now go through admin. `resource == null` lets
+    // createUserProfile pre-read a fresh (non-existent) family without a denial.
+    match /families/{id} {
+      allow read:   if resource == null || (signedIn() && request.auth.uid in resource.data.users);
+      allow create: if signedIn() && request.auth.uid in request.resource.data.users;
+      allow update: if signedIn() && request.auth.uid in resource.data.users;
+      allow delete: if false;
+    }
+  }
+}
