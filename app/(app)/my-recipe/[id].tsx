@@ -7,6 +7,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '../../../contexts/AuthContext';
 import IngredientCheckbox from '../../../components/IngredientCheckbox';
 import RecipeActions from '../../../components/RecipeActions';
+import RecipeRatingNotes from '../../../components/RecipeRatingNotes';
+import AddToGroceryListModal from '../../../components/AddToGroceryListModal';
 import { useRecipeSavedStatus } from '../../../hooks/useRecipeSavedStatus';
 import IngredientLinesEditor from '../../../components/IngredientLinesEditor';
 import StepsEditor from '../../../components/StepsEditor';
@@ -22,7 +24,7 @@ import { normalizeSteps, type CustomRecipe } from '../../../types/recipe';
 export default function MyRecipeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { getMyRecipeById, updateMyRecipe, deleteMyRecipe } = useAuth();
+  const { user, getMyRecipeById, updateMyRecipe, deleteMyRecipe } = useAuth();
   const { pickImage } = usePickImageBase64();
 
   const [recipe, setRecipe] = useState<CustomRecipe | null>(null);
@@ -32,12 +34,14 @@ export default function MyRecipeDetailScreen() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [convertingIndex, setConvertingIndex] = useState<number | null>(null);
+  const [groceryOpen, setGroceryOpen] = useState(false);
 
   const [editTitle, setEditTitle] = useState('');
   const [editImageUrl, setEditImageUrl] = useState('');
   const ingredientsEditor = useIngredientLinesEditor();
   const stepsEditor = useStepsEditor();
-  const { isFavorited, isWantToTry, toggleFavorite, toggleWantToTry } = useRecipeSavedStatus(String(id ?? ''), true);
+  const { isFavorited, isWantToTry, rating, notes, toggleFavorite, toggleWantToTry, setRating, saveNotes } =
+    useRecipeSavedStatus(String(id ?? ''), true);
 
   useEffect(() => {
     const load = async () => {
@@ -226,6 +230,14 @@ export default function MyRecipeDetailScreen() {
         </View>
       ) : null}
 
+      {recipe.cookTime ? <Text style={styles.metaText}>⏱ {recipe.cookTime} min</Text> : null}
+
+      {user ? (
+        <TouchableOpacity style={styles.groceryBtn} onPress={() => setGroceryOpen(true)}>
+          <Text style={styles.groceryBtnText}>🛒 Add to grocery list</Text>
+        </TouchableOpacity>
+      ) : null}
+
       {recipe.ingredients?.length > 0 && (
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
@@ -299,6 +311,16 @@ export default function MyRecipeDetailScreen() {
         </View>
       )}
 
+      {user ? (
+        <RecipeRatingNotes rating={rating} onRate={setRating} notes={notes} onSaveNotes={saveNotes} />
+      ) : null}
+
+      <AddToGroceryListModal
+        visible={groceryOpen}
+        onClose={() => setGroceryOpen(false)}
+        lines={(recipe.ingredients || []).map((i) => (i.quantity ? `${i.name} (${i.quantity} ${i.measurement})` : i.name).trim())}
+      />
+
       <Modal visible={editOpen} animationType="slide" onRequestClose={() => !saving && setEditOpen(false)}>
         <ScrollView style={styles.modalPage} contentContainerStyle={styles.modalContent}>
           <View style={styles.modalHeader}>
@@ -366,6 +388,9 @@ const styles = StyleSheet.create({
   servingsBtn: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: '#e4d9c5', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
   servingsBtnText: { fontSize: 18, color: '#115e59', lineHeight: 22 },
   servingsText: { fontWeight: '700', color: '#1f2421' },
+  metaText: { color: '#5e6a63', fontWeight: '600', marginBottom: 16 },
+  groceryBtn: { borderWidth: 1, borderColor: '#0f766e', borderRadius: 999, paddingVertical: 12, alignItems: 'center', marginBottom: 20 },
+  groceryBtnText: { color: '#0f766e', fontWeight: '700', fontSize: 15 },
   convertAllBtn: { alignSelf: 'flex-start', backgroundColor: '#ecfdf5', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 10 },
   convertAllText: { color: '#0f766e', fontWeight: '700', fontSize: 13 },
   section: { marginBottom: 24 },

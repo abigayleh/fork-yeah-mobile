@@ -1,10 +1,13 @@
 import { useState } from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import IngredientCheckbox from '../../../components/IngredientCheckbox';
 import RecipeActions from '../../../components/RecipeActions';
+import RecipeRatingNotes from '../../../components/RecipeRatingNotes';
+import AddToGroceryListModal from '../../../components/AddToGroceryListModal';
 import { useRecipeSavedStatus } from '../../../hooks/useRecipeSavedStatus';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const API_KEY = process.env.EXPO_PUBLIC_SPOONACULAR_API_KEY ?? '';
 
@@ -28,7 +31,11 @@ export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [servings, setServings] = useState<number | null>(null);
-  const { isFavorited, isWantToTry, toggleFavorite, toggleWantToTry } = useRecipeSavedStatus(String(id ?? ''), false);
+  const [forking, setForking] = useState(false);
+  const [groceryOpen, setGroceryOpen] = useState(false);
+  const { user, addMyRecipe } = useAuth();
+  const { isFavorited, isWantToTry, rating, notes, toggleFavorite, toggleWantToTry, setRating, saveNotes } =
+    useRecipeSavedStatus(String(id ?? ''), false);
 
   const { data: recipe, isLoading, isError } = useQuery<Recipe>({
     queryKey: ['spoonacularRecipe', id],
@@ -40,6 +47,33 @@ export default function RecipeDetailScreen() {
       return res.json() as Promise<Recipe>;
     },
   });
+
+  const handleFork = async () => {
+    if (!recipe) return;
+    setForking(true);
+    try {
+      const ingredients = (recipe.extendedIngredients || []).map((ing) => ({
+        name: ing.name || ing.original || '',
+        quantity: Number(ing.amount) || 0,
+        measurement: ing.unit || 'whole',
+      }));
+      const forkSteps =
+        recipe.analyzedInstructions?.[0]?.steps?.map((s) => ({ text: s.step })) ??
+        (recipe.instructions ? [{ text: stripHtml(recipe.instructions) }] : []);
+      const { recipeId } = await addMyRecipe({
+        name: recipe.title,
+        servings: recipe.servings,
+        cookTime: recipe.readyInMinutes || null,
+        imageUrl: recipe.image,
+        ingredients,
+        steps: forkSteps,
+      });
+      router.replace(`/(app)/my-recipe/${recipeId}` as never);
+    } catch {
+      Alert.alert('Error', 'Could not save a copy. Please try again.');
+      setForking(false);
+    }
+  };
 
   if (isLoading) return <ActivityIndicator style={styles.loader} size="large" color="#0f766e" />;
   if (isError || !recipe) return (
@@ -89,6 +123,17 @@ export default function RecipeDetailScreen() {
 
       {recipe.readyInMinutes ? <Text style={styles.metaText}>⏱ {recipe.readyInMinutes} min</Text> : null}
 
+      {user ? (
+        <>
+          <TouchableOpacity style={styles.forkBtn} onPress={handleFork} disabled={forking}>
+            <Text style={styles.forkBtnText}>{forking ? 'Saving…' : '🍴 Save a copy to edit'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.groceryBtn} onPress={() => setGroceryOpen(true)}>
+            <Text style={styles.groceryBtnText}>🛒 Add to grocery list</Text>
+          </TouchableOpacity>
+        </>
+      ) : null}
+
       {recipe.extendedIngredients?.length > 0 && (
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
@@ -120,6 +165,16 @@ export default function RecipeDetailScreen() {
           ))}
         </View>
       )}
+
+      {user ? (
+        <RecipeRatingNotes rating={rating} onRate={setRating} notes={notes} onSaveNotes={saveNotes} />
+      ) : null}
+
+      <AddToGroceryListModal
+        visible={groceryOpen}
+        onClose={() => setGroceryOpen(false)}
+        lines={(recipe.extendedIngredients || []).map((i) => i.original || i.name)}
+      />
     </ScrollView>
   );
 }
@@ -135,6 +190,10 @@ const styles = StyleSheet.create({
   image: { width: '100%', height: 220, borderRadius: 14 },
   detailActions: { top: 10, right: 10 },
   metaText: { color: '#5e6a63', fontWeight: '600', marginBottom: 20 },
+  forkBtn: { backgroundColor: '#0f766e', borderRadius: 999, paddingVertical: 12, alignItems: 'center', marginBottom: 10 },
+  forkBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  groceryBtn: { borderWidth: 1, borderColor: '#0f766e', borderRadius: 999, paddingVertical: 12, alignItems: 'center', marginBottom: 20 },
+  groceryBtnText: { color: '#0f766e', fontWeight: '700', fontSize: 15 },
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   servingsRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   servingsBtn: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: '#e4d9c5', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
