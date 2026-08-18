@@ -1,0 +1,7 @@
+appId: com.hammyinc.whatsfordinner
+name: Full flow
+---
+- runFlow: flows/01-login.yaml
+- runFlow: flows/02-favorite-recipe.yaml
+- runFlow: flows/03-folders.yaml
+- runFlow: flows/04-grocery-list.yaml

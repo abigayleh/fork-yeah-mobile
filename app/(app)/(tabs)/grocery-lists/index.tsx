@@ -76,7 +76,7 @@ export default function GroceryListsScreen() {
     <View style={styles.page}>
       <View style={styles.header}>
         <Text style={styles.heading}>Grocery Lists</Text>
-        <TouchableOpacity style={styles.createBtn} onPress={() => setCreateOpen(true)}>
+        <TouchableOpacity testID="grocery-new-list" style={styles.createBtn} onPress={() => setCreateOpen(true)}>
           <Text style={styles.createBtnText}>+ New List</Text>
         </TouchableOpacity>
       </View>

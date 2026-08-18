@@ -44,3 +44,6 @@ yarn-error.*
 # Firebase emulator
 firestore-debug.log
 firebase-debug.log
+
+# Maestro artifacts
+.maestro/screenshots/

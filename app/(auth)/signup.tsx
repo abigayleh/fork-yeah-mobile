@@ -38,15 +38,15 @@ export default function SignUpScreen() {
         {Boolean(error) && <Text style={styles.errorText}>{error}</Text>}
 
         <Text style={styles.label}>Email</Text>
-        <TextInput style={styles.input} value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" />
+        <TextInput testID="signup-email" style={styles.input} value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" />
 
         <Text style={styles.label}>Password</Text>
-        <TextInput style={styles.input} value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" />
+        <TextInput testID="signup-password" style={styles.input} value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" />
 
         <Text style={styles.label}>Confirm Password</Text>
-        <TextInput style={styles.input} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry autoComplete="new-password" />
+        <TextInput testID="signup-confirm-password" style={styles.input} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry autoComplete="new-password" />
 
-        <TouchableOpacity style={styles.primaryBtn} onPress={handleSignUp}>
+        <TouchableOpacity testID="signup-submit" style={styles.primaryBtn} onPress={handleSignUp}>
           <Text style={styles.primaryBtnText}>Create Account</Text>
         </TouchableOpacity>
 

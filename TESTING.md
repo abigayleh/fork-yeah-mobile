@@ -47,9 +47,36 @@ when `fork-yeah` isn't checked out alongside).
 - `clearEmulatorData()` in `beforeAll`; files run serially and share one project.
 - Denial assertions print Firestore PERMISSION_DENIED noise to stderr. Expected.
 
-## Known gap
+## E2E (Maestro)
+
+```
+npm run e2e
+```
+
+Drives the real UI on a booted simulator against the **Firestore emulator**, so a
+run never touches production. `scripts/e2e.sh` boots the emulators, clears them,
+starts Metro with `EXPO_PUBLIC_USE_FIREBASE_EMULATOR=1` (the flag must be set when
+the bundle is built, not when the app launches), points the dev client at Metro,
+and runs `.maestro/full-flow.yaml`.
+
+Needs Maestro (`curl -Ls https://get.maestro.mobile.dev | bash`) and a dev client
+already installed on the simulator (`npm run ios` once).
+
+Screenshots land in `.maestro/screenshots/` (gitignored) as artifacts for a human
+to look at. Nothing asserts on them — pixel diffing across simulator and font
+versions is too flaky to gate a build on.
+
+`flows/04-grocery-list.yaml` is expected to fail until mobile moves off direct
+`groceryLists` writes; see below.
+
+## Known gaps
 
 `hooks/useRecipeApi.ts` still holds its Firestore writes inline behind React
 Query, so `recipeFlow.test.ts` reproduces those write shapes rather than calling
 the app's code. Reads go through the real `lib/familyData.ts`. Extracting that
 hook's data layer to `lib/` — as was done for `useUserDataContext` — would close it.
+
+`createUserProfile` is exported from `useUserDataContext` but never called by any
+screen, so email signup creates an Auth user with no `users/{uid}` doc and no
+family. The web app writes the profile at signup. Nothing tests this yet because
+the app has no code path to test.

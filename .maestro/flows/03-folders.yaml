@@ -1,0 +1,27 @@
+appId: com.hammyinc.whatsfordinner
+name: Create a folder and a subfolder
+---
+- tapOn: 'Recipes'
+- assertVisible: 'Saved Recipes'
+
+- tapOn:
+    id: 'folder-add'
+- tapOn:
+    id: 'folder-name-input'
+- inputText: 'Dinners'
+- tapOn:
+    id: 'folder-create-submit'
+- assertVisible: 'Dinners'
+- takeScreenshot: .maestro/screenshots/07-folder-created
+
+# Creating while a folder is selected nests the new folder under it.
+- tapOn: 'Dinners'
+- tapOn:
+    id: 'folder-add'
+- tapOn:
+    id: 'folder-name-input'
+- inputText: 'Weeknight'
+- tapOn:
+    id: 'folder-create-submit'
+- assertVisible: 'Weeknight'
+- takeScreenshot: .maestro/screenshots/08-subfolder-created

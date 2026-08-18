@@ -40,7 +40,8 @@
     "web": "expo start --web",
     "test": "firebase emulators:exec --only auth,firestore --project demo-forkyeah-mobile 'vitest'",
     "test:run": "firebase emulators:exec --only auth,firestore --project demo-forkyeah-mobile 'vitest run'",
-    "sync-rules": "./scripts/sync-rules.sh"
+    "sync-rules": "./scripts/sync-rules.sh",
+    "e2e": "./scripts/e2e.sh"
   },
   "private": true
 }

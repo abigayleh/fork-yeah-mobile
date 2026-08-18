@@ -1,0 +1,35 @@
+appId: com.hammyinc.whatsfordinner
+name: Sign up and log in
+---
+- launchApp:
+    clearState: true
+- takeScreenshot: .maestro/screenshots/01-launch
+
+# Browse is the only tab open to signed-out users; any other opens the login modal.
+- tapOn: 'Recipes'
+- assertVisible:
+    id: 'login-email'
+- takeScreenshot: .maestro/screenshots/02-login-modal
+
+- tapOn: 'Sign up'
+- assertVisible:
+    id: 'signup-email'
+- tapOn:
+    id: 'signup-email'
+- inputText: '${E2E_EMAIL}'
+- tapOn:
+    id: 'signup-password'
+- inputText: '${E2E_PASSWORD}'
+- tapOn:
+    id: 'signup-confirm-password'
+- inputText: '${E2E_PASSWORD}'
+- takeScreenshot: .maestro/screenshots/03-signup-filled
+- tapOn:
+    id: 'signup-submit'
+
+# Face ID onboarding only appears where biometrics are enrolled.
+- tapOn:
+    text: 'Not now'
+    optional: true
+- assertVisible: 'Saved Recipes'
+- takeScreenshot: .maestro/screenshots/04-signed-in

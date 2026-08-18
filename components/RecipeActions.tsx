@@ -84,13 +84,13 @@ export default function RecipeActions({
 
   return (
     <View style={[styles.actions, containerStyle]}>
-      <TouchableOpacity style={styles.actionBtn} onPress={() => requireAuth(() => onFavorite?.())} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+      <TouchableOpacity testID="recipe-favorite" style={styles.actionBtn} onPress={() => requireAuth(() => onFavorite?.())} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
         <Ionicons name={isFavorited ? 'bookmark' : 'bookmark-outline'} size={16} color={isFavorited ? '#5eead4' : '#fff'} />
       </TouchableOpacity>
-      <TouchableOpacity style={styles.actionBtn} onPress={() => requireAuth(() => onWantToTry?.())} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+      <TouchableOpacity testID="recipe-want-to-try" style={styles.actionBtn} onPress={() => requireAuth(() => onWantToTry?.())} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
         <Ionicons name={isWantToTry ? 'heart' : 'heart-outline'} size={16} color={isWantToTry ? '#fb7185' : '#fff'} />
       </TouchableOpacity>
-      <TouchableOpacity style={styles.actionBtn} onPress={() => requireAuth(openFolderModal)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+      <TouchableOpacity testID="recipe-add-to-folder" style={styles.actionBtn} onPress={() => requireAuth(openFolderModal)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
         <Ionicons name="folder-open-outline" size={16} color="#fff" />
       </TouchableOpacity>
 

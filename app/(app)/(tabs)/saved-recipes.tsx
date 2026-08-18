@@ -96,7 +96,7 @@ export default function SavedRecipesScreen() {
       </View>
 
       <View style={styles.folderRow}>
-        <TouchableOpacity style={styles.addBtn} onPress={() => { setNewFolderName(''); setCreateModalOpen(true); }}>
+        <TouchableOpacity testID="folder-add" style={styles.addBtn} onPress={() => { setNewFolderName(''); setCreateModalOpen(true); }}>
           <Ionicons name="add" size={20} color="#0f766e" />
         </TouchableOpacity>
         <DraggableFlatList
@@ -152,6 +152,7 @@ export default function SavedRecipesScreen() {
           <View style={styles.modal}>
             <Text style={styles.modalTitle}>{activeFolderId && selectedFolder ? `New subfolder in ${selectedFolder.name}` : 'New Folder'}</Text>
             <TextInput
+              testID="folder-name-input"
               style={styles.modalInput}
               placeholder="Folder name..."
               value={newFolderName}
@@ -161,6 +162,7 @@ export default function SavedRecipesScreen() {
               onSubmitEditing={handleCreateFolder}
             />
             <TouchableOpacity
+              testID="folder-create-submit"
               style={[styles.modalBtn, (!newFolderName.trim() || creatingFolder) && { opacity: 0.5 }]}
               onPress={handleCreateFolder}
               disabled={!newFolderName.trim() || creatingFolder}

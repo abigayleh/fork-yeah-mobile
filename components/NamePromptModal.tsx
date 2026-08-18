@@ -40,6 +40,7 @@ export default function NamePromptModal({
         <TouchableOpacity activeOpacity={1} style={styles.card}>
           <Text style={styles.title}>{title}</Text>
           <TextInput
+            testID="name-prompt-input"
             style={styles.input}
             value={value}
             onChangeText={setValue}
@@ -52,7 +53,7 @@ export default function NamePromptModal({
             <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
               <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.confirmBtn, !value.trim() && styles.confirmBtnDisabled]} onPress={handleConfirm} disabled={!value.trim()}>
+            <TouchableOpacity testID="name-prompt-confirm" style={[styles.confirmBtn, !value.trim() && styles.confirmBtnDisabled]} onPress={handleConfirm} disabled={!value.trim()}>
               <Text style={styles.confirmText}>{confirmLabel}</Text>
             </TouchableOpacity>
           </View>

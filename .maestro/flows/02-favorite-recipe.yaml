@@ -1,0 +1,16 @@
+appId: com.hammyinc.whatsfordinner
+name: Favorite a recipe
+---
+# Assumes 01-login left a signed-in session; run via full-flow.yaml.
+- tapOn: 'Browse'
+- assertVisible:
+    id: 'recipe-favorite'
+    optional: true
+- tapOn:
+    id: 'recipe-favorite'
+    index: 0
+- takeScreenshot: .maestro/screenshots/05-favorited
+
+- tapOn: 'Recipes'
+- assertVisible: 'Saved Recipes'
+- takeScreenshot: .maestro/screenshots/06-saved-recipes

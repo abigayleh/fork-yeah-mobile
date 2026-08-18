@@ -32,6 +32,7 @@ export default function LoginForm() {
 
       <Text style={styles.label}>Email</Text>
       <TextInput
+        testID="login-email"
         style={styles.input}
         value={email}
         onChangeText={setEmail}
@@ -42,6 +43,7 @@ export default function LoginForm() {
 
       <Text style={styles.label}>Password</Text>
       <TextInput
+        testID="login-password"
         style={styles.input}
         value={password}
         onChangeText={setPassword}
@@ -49,7 +51,7 @@ export default function LoginForm() {
         autoComplete="current-password"
       />
 
-      <TouchableOpacity style={styles.primaryBtn} onPress={handleEmailLogin}>
+      <TouchableOpacity testID="login-submit" style={styles.primaryBtn} onPress={handleEmailLogin}>
         <Text style={styles.primaryBtnText}>Log In</Text>
       </TouchableOpacity>
 

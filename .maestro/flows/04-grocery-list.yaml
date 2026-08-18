@@ -1,0 +1,20 @@
+appId: com.hammyinc.whatsfordinner
+name: Create a grocery list
+---
+# NOTE: expected to FAIL against production rules today — groceryLists is
+# admin-only (`allow read, write: if false`) and mobile still writes it directly
+# from the client. See tests/groceryFlow.test.ts. Passing here means mobile has
+# been migrated onto /api/myGroceryLists*.
+- tapOn: 'Groceries'
+- assertVisible: 'Grocery Lists'
+- takeScreenshot: .maestro/screenshots/09-grocery-empty
+
+- tapOn:
+    id: 'grocery-new-list'
+- tapOn:
+    id: 'name-prompt-input'
+- inputText: 'Weekly Shop'
+- tapOn:
+    id: 'name-prompt-confirm'
+- assertVisible: 'Weekly Shop'
+- takeScreenshot: .maestro/screenshots/10-grocery-created
