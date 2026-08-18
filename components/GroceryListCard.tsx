@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import EditableLinesList from './EditableLinesList';
 import { useGroceryItemsEditor, type GroceryItem, type GroceryItemLine } from '../hooks/useGroceryItemsEditor';
+import { sortGroceryByCategory } from '../lib/groceryCategories';
 
 type GroceryList = { id: string; name: string; items: GroceryItem[] };
 
@@ -34,6 +35,10 @@ export default function GroceryListCard({ list, expanded, onToggleExpand, onRena
 
   const itemCount = editor.items.filter((item) => item.text.trim()).length;
 
+  const handleAutoSort = () => {
+    editor.resetLines(sortGroceryByCategory(editor.items, (line) => line.text));
+  };
+
   return (
     <View style={styles.card}>
       <Swipeable
@@ -51,6 +56,15 @@ export default function GroceryListCard({ list, expanded, onToggleExpand, onRena
           </View>
         </TouchableOpacity>
       </Swipeable>
+
+      {expanded && itemCount > 1 ? (
+        <View style={styles.toolbar}>
+          <TouchableOpacity style={styles.sortBtn} onPress={handleAutoSort}>
+            <Ionicons name="funnel-outline" size={14} color="#0f766e" />
+            <Text style={styles.sortText}>Auto sort</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       {expanded && (
         <EditableLinesList<GroceryItemLine>
@@ -85,5 +99,8 @@ const styles = StyleSheet.create({
   itemCount: { color: '#5e6a63', fontSize: 13, marginTop: 2 },
   deleteAction: { backgroundColor: '#9f1239', width: 56, alignItems: 'center', justifyContent: 'center' },
   checkbox: { paddingTop: 8, paddingHorizontal: 4 },
+  toolbar: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 14, paddingTop: 4 },
+  sortBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 4, paddingHorizontal: 6 },
+  sortText: { color: '#0f766e', fontWeight: '700', fontSize: 13 },
   checkedText: { textDecorationLine: 'line-through', color: '#9ca3af' },
 });
