@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import EditableLinesList from './EditableLinesList';
-import { useGroceryItemsEditor, type GroceryItem, type GroceryItemLine } from '../hooks/useGroceryItemsEditor';
+import QuickAddModal from './QuickAddModal';
+import { useGroceryItemsEditor, hydrateGroceryItems, type GroceryItem, type GroceryItemLine } from '../hooks/useGroceryItemsEditor';
 import { sortGroceryByCategory } from '../lib/groceryCategories';
 
 type GroceryList = { id: string; name: string; items: GroceryItem[] };
@@ -35,8 +36,19 @@ export default function GroceryListCard({ list, expanded, onToggleExpand, onRena
 
   const itemCount = editor.items.filter((item) => item.text.trim()).length;
 
+  const [quickOpen, setQuickOpen] = useState(false);
+
   const handleAutoSort = () => {
     editor.resetLines(sortGroceryByCategory(editor.items, (line) => line.text));
+  };
+
+  const handleQuickAdd = (names: string[]) => {
+    const existing = new Set(editor.items.map((l) => l.text.trim().toLowerCase()));
+    const additions = names
+      .filter((n) => n.trim() && !existing.has(n.trim().toLowerCase()))
+      .map((n) => ({ name: n.trim(), checked: false }));
+    if (!additions.length) return;
+    editor.resetLines([...editor.items.filter((l) => l.text.trim()), ...hydrateGroceryItems(additions)]);
   };
 
   return (
@@ -57,12 +69,18 @@ export default function GroceryListCard({ list, expanded, onToggleExpand, onRena
         </TouchableOpacity>
       </Swipeable>
 
-      {expanded && itemCount > 1 ? (
+      {expanded ? (
         <View style={styles.toolbar}>
-          <TouchableOpacity style={styles.sortBtn} onPress={handleAutoSort}>
-            <Ionicons name="funnel-outline" size={14} color="#0f766e" />
-            <Text style={styles.sortText}>Auto sort</Text>
+          <TouchableOpacity style={styles.sortBtn} onPress={() => setQuickOpen(true)}>
+            <Ionicons name="add-circle-outline" size={14} color="#0f766e" />
+            <Text style={styles.sortText}>Quick add</Text>
           </TouchableOpacity>
+          {itemCount > 1 ? (
+            <TouchableOpacity style={styles.sortBtn} onPress={handleAutoSort}>
+              <Ionicons name="funnel-outline" size={14} color="#0f766e" />
+              <Text style={styles.sortText}>Auto sort</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       ) : null}
 
@@ -87,6 +105,8 @@ export default function GroceryListCard({ list, expanded, onToggleExpand, onRena
           )}
         />
       )}
+
+      <QuickAddModal visible={quickOpen} onClose={() => setQuickOpen(false)} onAddItems={handleQuickAdd} />
     </View>
   );
 }
@@ -99,7 +119,7 @@ const styles = StyleSheet.create({
   itemCount: { color: '#5e6a63', fontSize: 13, marginTop: 2 },
   deleteAction: { backgroundColor: '#9f1239', width: 56, alignItems: 'center', justifyContent: 'center' },
   checkbox: { paddingTop: 8, paddingHorizontal: 4 },
-  toolbar: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 14, paddingTop: 4 },
+  toolbar: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, paddingHorizontal: 14, paddingTop: 4 },
   sortBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 4, paddingHorizontal: 6 },
   sortText: { color: '#0f766e', fontWeight: '700', fontSize: 13 },
   checkedText: { textDecorationLine: 'line-through', color: '#9ca3af' },
