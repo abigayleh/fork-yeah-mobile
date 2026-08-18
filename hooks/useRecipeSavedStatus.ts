@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
-// Tracks favorite/want-to-try state for a single recipe (used on detail pages).
+// Tracks favorite/want-to-try state, star rating and notes for a single recipe
+// (used on detail pages).
 export function useRecipeSavedStatus(recipeId: string, isMyRecipe = false) {
-  const { getUserRecipeById, addRecipeToUser } = useAuth();
+  const { getUserRecipeById, addRecipeToUser, setRecipeNotes } = useAuth();
   const [isFavorited, setIsFavorited] = useState(false);
   const [isWantToTry, setIsWantToTry] = useState(false);
+  const [rating, setRatingState] = useState<number | null>(null);
+  const [notes, setNotesState] = useState('');
 
   useEffect(() => {
     if (!recipeId) return;
@@ -13,6 +16,8 @@ export function useRecipeSavedStatus(recipeId: string, isMyRecipe = false) {
       if (r) {
         setIsFavorited(Boolean(r.favorite));
         setIsWantToTry(Boolean(r.wantToTry));
+        setRatingState(typeof r.rating === 'number' ? r.rating : null);
+        setNotesState(typeof r.notes === 'string' ? r.notes : '');
       }
     }).catch(() => {});
   }, [recipeId, isMyRecipe, getUserRecipeById]);
@@ -27,5 +32,15 @@ export function useRecipeSavedStatus(recipeId: string, isMyRecipe = false) {
     await addRecipeToUser(recipeId, 'wantToTry', null, { isMyRecipe });
   };
 
-  return { isFavorited, isWantToTry, toggleFavorite, toggleWantToTry };
+  const setRating = async (value: number | null) => {
+    setRatingState(value);
+    await addRecipeToUser(recipeId, 'rating', value, { isMyRecipe });
+  };
+
+  const saveNotes = async (value: string) => {
+    setNotesState(value);
+    await setRecipeNotes(recipeId, value, { isMyRecipe });
+  };
+
+  return { isFavorited, isWantToTry, rating, notes, toggleFavorite, toggleWantToTry, setRating, saveNotes };
 }

@@ -54,7 +54,7 @@ export function useRecipeApi(getFamilyUserIdsForCurrentUser: () => Promise<strin
     const recipeSnap = await getDoc(recipeRef);
     const existing = recipeSnap.exists()
       ? recipeSnap.data()
-      : { favorite: false, wantToTry: false, rating: null, isMyRecipe: false };
+      : { favorite: false, wantToTry: false, rating: null, notes: '', isMyRecipe: false };
 
     await setDoc(recipeRef, {
       userId: user.uid,
@@ -62,6 +62,36 @@ export function useRecipeApi(getFamilyUserIdsForCurrentUser: () => Promise<strin
       favorite: recipeType === 'favorite' ? !existing.favorite : existing.favorite,
       wantToTry: recipeType === 'wantToTry' ? !existing.wantToTry : existing.wantToTry,
       rating: recipeType === 'rating' ? ratingValue : existing.rating,
+      notes: existing.notes ?? '',
+      isMyRecipe: Boolean(isMyRecipe),
+    });
+    await invalidateUserRecipeQueries();
+  };
+
+  // Free-text notes for a saved recipe, preserving favorite/wantToTry/rating.
+  const setRecipeNotes = async (
+    recipeId: string | number,
+    notes: string,
+    options: { isMyRecipe?: boolean } = {}
+  ) => {
+    const user = auth.currentUser;
+    if (!user) return;
+    const { isMyRecipe = false } = options;
+    const normalizedId = String(recipeId);
+    const docId = `${user.uid}_${isMyRecipe ? `my_${normalizedId}` : normalizedId}`;
+    const recipeRef = doc(db, 'userRecipes', docId);
+    const snap = await getDoc(recipeRef);
+    const existing = snap.exists()
+      ? snap.data()
+      : { favorite: false, wantToTry: false, rating: null, isMyRecipe: false };
+
+    await setDoc(recipeRef, {
+      userId: user.uid,
+      recipeId: normalizedId,
+      favorite: existing.favorite ?? false,
+      wantToTry: existing.wantToTry ?? false,
+      rating: existing.rating ?? null,
+      notes: notes ?? '',
       isMyRecipe: Boolean(isMyRecipe),
     });
     await invalidateUserRecipeQueries();
@@ -228,6 +258,7 @@ export function useRecipeApi(getFamilyUserIdsForCurrentUser: () => Promise<strin
 
   return {
     addRecipeToUser,
+    setRecipeNotes,
     getUserRecipeById,
     getUserRecipes,
     getUserFolders,

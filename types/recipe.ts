@@ -25,6 +25,7 @@ export interface CustomRecipe {
   name: string;
   imageUrl?: string;
   servings?: number;
+  cookTime?: number;
   ingredients: CustomRecipeIngredient[];
   ingredientSections?: IngredientSectionMarker[];
   steps: RecipeStep[];
