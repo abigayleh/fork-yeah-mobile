@@ -9,6 +9,7 @@ export type FolderItem = {
   id?: string;
   name: string;
   order?: number;
+  parentId?: string;
   recipes?: { recipeId: string; isMyRecipe: boolean }[];
 };
 

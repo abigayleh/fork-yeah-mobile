@@ -28,7 +28,7 @@ export default function SavedRecipesScreen() {
     if (!name || creatingFolder) return;
     setCreatingFolder(true);
     try {
-      const created = await createUserFolder(name);
+      const created = await createUserFolder(name, activeFolderId ?? undefined);
       setFolders((prev) => [...prev, created as FolderItem]);
       setNewFolderName('');
       setCreateModalOpen(false);
@@ -43,6 +43,22 @@ export default function SavedRecipesScreen() {
     setFolders(data);
     reorderUserFolders(data.map((f) => f.id ?? '').filter(Boolean)).catch(() => {});
   };
+
+  // Group subfolders directly after their parent folder for display.
+  const orderedFolders = (() => {
+    const out: FolderItem[] = [];
+    const placed = new Set<string>();
+    for (const top of folders.filter((f) => !f.parentId)) {
+      out.push(top);
+      if (top.id) placed.add(top.id);
+      for (const child of folders.filter((f) => f.parentId && f.parentId === top.id)) {
+        out.push(child);
+        if (child.id) placed.add(child.id);
+      }
+    }
+    for (const f of folders) if (!f.id || !placed.has(f.id)) out.push(f);
+    return out;
+  })();
 
   const sections: { key: typeof section; label: string }[] = [
     { key: 'myRecipes', label: 'My Recipes' },
@@ -84,7 +100,7 @@ export default function SavedRecipesScreen() {
           <Ionicons name="add" size={20} color="#0f766e" />
         </TouchableOpacity>
         <DraggableFlatList
-          data={folders}
+          data={orderedFolders}
           keyExtractor={(item, i) => item.id ?? String(i)}
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -94,11 +110,11 @@ export default function SavedRecipesScreen() {
             const selected = activeFolderId === item.id;
             return (
               <TouchableOpacity
-                style={[styles.chip, selected && styles.chipActive, isActive && styles.chipDragging]}
+                style={[styles.chip, item.parentId ? styles.chipSub : null, selected && styles.chipActive, isActive && styles.chipDragging]}
                 onPress={() => selectFolder(item)}
                 onLongPress={drag}
               >
-                <Text style={[styles.chipText, selected && styles.chipTextActive]}>{item.name}</Text>
+                <Text style={[styles.chipText, selected && styles.chipTextActive]}>{item.parentId ? '› ' : ''}{item.name}</Text>
               </TouchableOpacity>
             );
           }}
@@ -134,7 +150,7 @@ export default function SavedRecipesScreen() {
       <Modal visible={createModalOpen} transparent animationType="fade" onRequestClose={() => !creatingFolder && setCreateModalOpen(false)}>
         <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => !creatingFolder && setCreateModalOpen(false)}>
           <View style={styles.modal}>
-            <Text style={styles.modalTitle}>New Folder</Text>
+            <Text style={styles.modalTitle}>{activeFolderId && selectedFolder ? `New subfolder in ${selectedFolder.name}` : 'New Folder'}</Text>
             <TextInput
               style={styles.modalInput}
               placeholder="Folder name..."
@@ -172,6 +188,7 @@ const styles = StyleSheet.create({
   folderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingLeft: 16 },
   folderScroll: { paddingRight: 16, gap: 8 },
   chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, borderColor: '#e4d9c5', backgroundColor: '#fff' },
+  chipSub: { backgroundColor: '#faf6ec', borderStyle: 'dashed' },
   chipActive: { backgroundColor: '#0f766e', borderColor: '#0f766e' },
   chipDragging: { opacity: 0.7, transform: [{ scale: 1.05 }] },
   chipText: { fontWeight: '700', color: '#5e6a63', fontSize: 12 },

@@ -129,11 +129,11 @@ export function useRecipeApi(getFamilyUserIdsForCurrentUser: () => Promise<strin
     });
   };
 
-  const createUserFolder = async (name: string) => {
+  const createUserFolder = async (name: string, parentId?: string) => {
     const user = auth.currentUser;
     if (!user) throw new Error('User not authenticated');
     const ref = collection(db, 'folders');
-    const newFolder = { name, recipes: [], userId: user.uid, order: Date.now() };
+    const newFolder = { name, recipes: [], userId: user.uid, order: Date.now(), ...(parentId ? { parentId } : {}) };
     const folderRef = await addDoc(ref, newFolder);
     await invalidateFolderQueries();
     return { id: folderRef.id, ...newFolder };
