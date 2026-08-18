@@ -37,6 +37,16 @@ Do not write code until this process is complete.
 - Prefer global styles over scoped/inline styles
 - No style duplication
 
+## Testing
+
+`npm run test:run` — emulator-backed integration tests against the **real
+production** `firestore.rules`. See TESTING.md. Data access lives in `lib/`
+(`userContext.ts`, `familyData.ts`) precisely so it can be driven headlessly;
+hooks are thin state wrappers over it. Keep new Firestore access in `lib/`.
+
+Gotcha this suite exists for: a query the rules can't evaluate (any `list` on
+`families`) is denied outright, and a rules-disabled test suite will never see it.
+
 ## Codebase Exploration & Knowledge Sharing
 
 Before starting non-trivial work, especially in an unfamiliar part of the codebase, explore first:
