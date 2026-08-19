@@ -102,7 +102,7 @@ export default function GroceryListCard({ list, expanded, onToggleExpand, onRena
           deleteOnSwipe
           renderPrefix={(line, index, _indented, drag) => (
             <TouchableOpacity onPress={() => editor.toggleItemChecked(index)} onLongPress={drag} style={styles.checkbox} hitSlop={8}>
-              <Ionicons name={line.checked ? 'checkbox' : 'square-outline'} size={17} color={line.checked ? '#0f766e' : '#9ca3af'} />
+              <Ionicons name={line.checked ? 'checkbox' : 'square-outline'} size={17} color="#0f766e" />
             </TouchableOpacity>
           )}
         />
@@ -120,8 +120,9 @@ const styles = StyleSheet.create({
   listName: { fontWeight: '700', color: '#1f2421', fontSize: 16 },
   itemCount: { color: '#5e6a63', fontSize: 13, marginTop: 2 },
   deleteAction: { backgroundColor: '#9f1239', width: 56, alignItems: 'center', justifyContent: 'center' },
-  // paddingTop centres the box on the first line of item text, not the whole row.
-  checkbox: { paddingTop: 9, paddingLeft: 4, paddingRight: 2 },
+  // paddingTop centres the box on the first line of item text; paddingLeft lines it
+  // up with the card header's chevron.
+  checkbox: { paddingTop: 9, paddingLeft: 16, paddingRight: 2 },
   toolbar: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, paddingHorizontal: 14, paddingTop: 4 },
   sortBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 4, paddingHorizontal: 6 },
   sortText: { color: '#0f766e', fontWeight: '700', fontSize: 13 },
