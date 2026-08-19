@@ -39,26 +39,35 @@ export default function SavedRecipesScreen() {
     }
   };
 
-  const handleFolderReorder = ({ data }: { data: FolderItem[] }) => {
-    setFolders(data);
-    reorderUserFolders(data.map((f) => f.id ?? '').filter(Boolean)).catch(() => {});
+  // Stored order keeps each subfolder directly after its parent.
+  const applyFolderOrder = (next: FolderItem[]) => {
+    const flat: FolderItem[] = [];
+    for (const top of next.filter((f) => !f.parentId)) {
+      flat.push(top, ...next.filter((f) => f.parentId === top.id));
+    }
+    for (const f of next) if (!flat.includes(f)) flat.push(f);
+    setFolders(flat);
+    reorderUserFolders(flat.map((f) => f.id ?? '').filter(Boolean)).catch(() => {});
   };
 
-  // Group subfolders directly after their parent folder for display.
-  const orderedFolders = (() => {
-    const out: FolderItem[] = [];
-    const placed = new Set<string>();
-    for (const top of folders.filter((f) => !f.parentId)) {
-      out.push(top);
-      if (top.id) placed.add(top.id);
-      for (const child of folders.filter((f) => f.parentId && f.parentId === top.id)) {
-        out.push(child);
-        if (child.id) placed.add(child.id);
-      }
-    }
-    for (const f of folders) if (!f.id || !placed.has(f.id)) out.push(f);
-    return out;
-  })();
+  const topFolders = folders.filter((f) => !f.parentId);
+  const activeFolder = folders.find((f) => f.id === activeFolderId);
+  // Subfolders only show while their own parent branch is the selection.
+  const openParentId = activeFolder ? activeFolder.parentId ?? activeFolder.id : null;
+  const childFolders = openParentId ? folders.filter((f) => f.parentId === openParentId) : [];
+
+  const renderFolderChip = ({ item, drag, isActive }: RenderItemParams<FolderItem>) => {
+    const selected = activeFolderId === item.id;
+    return (
+      <TouchableOpacity
+        style={[styles.chip, item.parentId ? styles.chipSub : null, selected && styles.chipActive, isActive && styles.chipDragging]}
+        onPress={() => selectFolder(item)}
+        onLongPress={drag}
+      >
+        <Text style={[styles.chipText, selected && styles.chipTextActive]}>{item.parentId ? '› ' : ''}{item.name}</Text>
+      </TouchableOpacity>
+    );
+  };
 
   const sections: { key: typeof section; label: string }[] = [
     { key: 'myRecipes', label: 'My Recipes' },
@@ -100,26 +109,29 @@ export default function SavedRecipesScreen() {
           <Ionicons name="add" size={20} color="#0f766e" />
         </TouchableOpacity>
         <DraggableFlatList
-          data={orderedFolders}
+          data={topFolders}
           keyExtractor={(item, i) => item.id ?? String(i)}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.folderScroll}
-          onDragEnd={handleFolderReorder}
-          renderItem={({ item, drag, isActive }: RenderItemParams<FolderItem>) => {
-            const selected = activeFolderId === item.id;
-            return (
-              <TouchableOpacity
-                style={[styles.chip, item.parentId ? styles.chipSub : null, selected && styles.chipActive, isActive && styles.chipDragging]}
-                onPress={() => selectFolder(item)}
-                onLongPress={drag}
-              >
-                <Text style={[styles.chipText, selected && styles.chipTextActive]}>{item.parentId ? '› ' : ''}{item.name}</Text>
-              </TouchableOpacity>
-            );
-          }}
+          onDragEnd={({ data }) => applyFolderOrder([...data, ...folders.filter((f) => f.parentId)])}
+          renderItem={renderFolderChip}
         />
       </View>
+
+      {childFolders.length ? (
+        <View style={[styles.folderRow, styles.folderRowSub]}>
+          <DraggableFlatList
+            data={childFolders}
+            keyExtractor={(item, i) => item.id ?? String(i)}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.folderScroll}
+            onDragEnd={({ data }) => applyFolderOrder([...folders.filter((f) => f.parentId !== openParentId), ...data])}
+            renderItem={renderFolderChip}
+          />
+        </View>
+      ) : null}
 
       {loading || loadingFolder ? (
         <ActivityIndicator style={styles.loader} size="large" color="#0f766e" />
@@ -188,6 +200,7 @@ const styles = StyleSheet.create({
   tabText: { fontWeight: '700', color: '#5e6a63', fontSize: 12 },
   tabTextActive: { color: '#fff' },
   folderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingLeft: 16 },
+  folderRowSub: { paddingLeft: 48, marginTop: -6 },
   folderScroll: { paddingRight: 16, gap: 8 },
   chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, borderColor: '#e4d9c5', backgroundColor: '#fff' },
   chipSub: { backgroundColor: '#faf6ec', borderStyle: 'dashed' },
