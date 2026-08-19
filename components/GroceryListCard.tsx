@@ -98,8 +98,10 @@ export default function GroceryListCard({ list, expanded, onToggleExpand, onRena
           placeholder={() => 'Add an item...'}
           removeLabel={() => 'Remove item'}
           textStyle={(line) => (line.checked ? styles.checkedText : undefined)}
-          renderPrefix={(line, index) => (
-            <TouchableOpacity onPress={() => editor.toggleItemChecked(index)} style={styles.checkbox}>
+          showDragHandle={false}
+          deleteOnSwipe
+          renderPrefix={(line, index, _indented, drag) => (
+            <TouchableOpacity onPress={() => editor.toggleItemChecked(index)} onLongPress={drag} style={styles.checkbox}>
               <Ionicons name={line.checked ? 'checkbox' : 'square-outline'} size={20} color={line.checked ? '#0f766e' : '#9ca3af'} />
             </TouchableOpacity>
           )}

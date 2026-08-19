@@ -16,10 +16,14 @@ interface EditableLinesListProps<TLine extends EditableLineBase> {
   onDeleteAtStart: (index: number) => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
   placeholder: (line: TLine, indented: boolean) => string;
-  renderPrefix: (line: TLine, index: number, indented: boolean) => React.ReactNode;
+  renderPrefix: (line: TLine, index: number, indented: boolean, drag: () => void) => React.ReactNode;
   renderExtra?: (line: TLine, index: number) => React.ReactNode;
   removeLabel: (line: TLine) => string;
   textStyle?: (line: TLine) => TextStyle | undefined;
+  // Off means the row has no visible handle and drag starts from the prefix instead.
+  showDragHandle?: boolean;
+  // On means a full right-swipe removes the line instead of parking on a delete button.
+  deleteOnSwipe?: boolean;
 }
 
 // Everything following a header is indented until the next one.
@@ -49,6 +53,8 @@ export default function EditableLinesList<TLine extends EditableLineBase>({
   renderExtra,
   removeLabel,
   textStyle,
+  showDragHandle = true,
+  deleteOnSwipe = false,
 }: EditableLinesListProps<TLine>) {
   const inputRefs = useRef<Map<string, TextInput>>(new Map());
   const selections = useRef<Map<string, { start: number; end: number }>>(new Map());
@@ -78,6 +84,8 @@ export default function EditableLinesList<TLine extends EditableLineBase>({
 
         return (
           <Swipeable
+            rightThreshold={deleteOnSwipe ? 80 : undefined}
+            onSwipeableWillOpen={deleteOnSwipe ? (direction) => direction === 'right' && onRemove(index) : undefined}
             renderRightActions={() => (
               <TouchableOpacity
                 style={styles.deleteAction}
@@ -95,10 +103,12 @@ export default function EditableLinesList<TLine extends EditableLineBase>({
                 isActive && styles.rowActive,
               ]}
             >
-              <TouchableOpacity onLongPress={drag} style={styles.dragHandle} accessibilityLabel="Drag to reorder">
-                <Ionicons name="reorder-three-outline" size={20} color="#9ca3af" />
-              </TouchableOpacity>
-              {renderPrefix(line, index, indented)}
+              {showDragHandle ? (
+                <TouchableOpacity onLongPress={drag} style={styles.dragHandle} accessibilityLabel="Drag to reorder">
+                  <Ionicons name="reorder-three-outline" size={20} color="#9ca3af" />
+                </TouchableOpacity>
+              ) : null}
+              {renderPrefix(line, index, indented, drag)}
               <View style={styles.mainColumn}>
                 <TextInput
                   ref={(el) => {
