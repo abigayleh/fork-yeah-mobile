@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { collection, addDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../../../../lib/firebase';
-import { fetchDocsForFamily, withCurrentUser } from '../../../../lib/familyData';
-import { useAuth } from '../../../../contexts/AuthContext';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { auth } from '../../../../lib/firebase';
+import {
+  createGroceryList, deleteGroceryList, fetchGroceryLists,
+  renameGroceryList, saveGroceryItems, type GroceryList,
+} from '../../../../lib/groceryApi';
 import GroceryListCard from '../../../../components/GroceryListCard';
 import NamePromptModal from '../../../../components/NamePromptModal';
 import type { GroceryItem } from '../../../../hooks/useGroceryItemsEditor';
-
-type GroceryList = { id: string; name: string; items: GroceryItem[] };
 
 export default function GroceryListsScreen() {
   const [lists, setLists] = useState<GroceryList[]>([]);
@@ -16,20 +15,14 @@ export default function GroceryListsScreen() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [createOpen, setCreateOpen] = useState(false);
   const [renamingList, setRenamingList] = useState<GroceryList | null>(null);
-  const { getFamilyUserIdsForCurrentUser } = useAuth();
 
   const loadLists = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
+    if (!auth.currentUser) return;
     setLoading(true);
     try {
-      const familyUserIds = withCurrentUser(user.uid, await getFamilyUserIdsForCurrentUser());
-      const docs = await fetchDocsForFamily('groceryLists', familyUserIds);
-      setLists(docs.map((data) => ({
-        id: data.id as string,
-        name: (data.name as string) ?? '',
-        items: Array.isArray(data.items) ? (data.items as GroceryItem[]) : [],
-      })));
+      setLists(await fetchGroceryLists());
+    } catch {
+      Alert.alert('Error', 'Could not load your grocery lists.');
     } finally {
       setLoading(false);
     }
@@ -47,29 +40,45 @@ export default function GroceryListsScreen() {
   };
 
   const handleCreate = async (name: string) => {
-    const user = auth.currentUser;
-    if (!user) return;
+    if (!auth.currentUser) return;
     setCreateOpen(false);
-    const ref = await addDoc(collection(db, 'groceryLists'), { name, userId: user.uid, items: [] });
-    setLists((prev) => [...prev, { id: ref.id, name, items: [] }]);
-    setExpandedIds((prev) => new Set(prev).add(ref.id));
+    try {
+      const created = await createGroceryList(name);
+      setLists((prev) => [...prev, created]);
+      setExpandedIds((prev) => new Set(prev).add(created.id));
+    } catch {
+      Alert.alert('Error', 'Could not create the list.');
+    }
   };
 
   const handleRename = async (name: string) => {
     if (!renamingList) return;
-    await setDoc(doc(db, 'groceryLists', renamingList.id), { name }, { merge: true });
-    setLists((prev) => prev.map((l) => (l.id === renamingList.id ? { ...l, name } : l)));
+    const { id } = renamingList;
     setRenamingList(null);
+    try {
+      await renameGroceryList(id, name);
+      setLists((prev) => prev.map((l) => (l.id === id ? { ...l, name } : l)));
+    } catch {
+      Alert.alert('Error', 'Could not rename the list.');
+    }
   };
 
   const handleDelete = async (id: string) => {
-    await deleteDoc(doc(db, 'groceryLists', id));
-    setLists((prev) => prev.filter((l) => l.id !== id));
+    try {
+      await deleteGroceryList(id);
+      setLists((prev) => prev.filter((l) => l.id !== id));
+    } catch {
+      Alert.alert('Error', 'Could not delete the list.');
+    }
   };
 
   const handleSaveItems = async (id: string, items: GroceryItem[]) => {
-    await setDoc(doc(db, 'groceryLists', id), { items }, { merge: true });
-    setLists((prev) => prev.map((l) => (l.id === id ? { ...l, items } : l)));
+    try {
+      const saved = await saveGroceryItems(id, items);
+      setLists((prev) => prev.map((l) => (l.id === id ? { ...l, items: saved } : l)));
+    } catch {
+      Alert.alert('Error', 'Could not save the list.');
+    }
   };
 
   return (

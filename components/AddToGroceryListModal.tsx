@@ -2,20 +2,14 @@ import { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal, ActivityIndicator, ScrollView, TextInput, Alert,
 } from 'react-native';
-import { collection, addDoc, doc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
-import { fetchDocsForFamily, withCurrentUser } from '../lib/familyData';
-import { useAuth } from '../contexts/AuthContext';
-import type { GroceryItem } from '../hooks/useGroceryItemsEditor';
-
-type GList = { id: string; name: string; items: GroceryItem[] };
+import { auth } from '../lib/firebase';
+import { createGroceryList, fetchGroceryLists, saveGroceryItems, type GroceryList as GList } from '../lib/groceryApi';
 
 type Props = { visible: boolean; onClose: () => void; lines: string[] };
 
 // Turns a recipe's ingredient lines into grocery items and adds them to a chosen
 // list (deduping by name), or into a brand-new list.
 export default function AddToGroceryListModal({ visible, onClose, lines }: Props) {
-  const { getFamilyUserIdsForCurrentUser } = useAuth();
   const [lists, setLists] = useState<GList[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -25,19 +19,14 @@ export default function AddToGroceryListModal({ visible, onClose, lines }: Props
   const cleanLines = Array.from(new Set(lines.map((l) => l.trim()).filter(Boolean)));
 
   const load = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
+    if (!auth.currentUser) return;
     setCreating(false);
     setNewName('');
     setLoading(true);
     try {
-      const ids = withCurrentUser(user.uid, await getFamilyUserIdsForCurrentUser());
-      const docs = await fetchDocsForFamily('groceryLists', ids);
-      setLists(docs.map((d) => ({
-        id: d.id as string,
-        name: (d.name as string) ?? '',
-        items: Array.isArray(d.items) ? (d.items as GroceryItem[]) : [],
-      })));
+      setLists(await fetchGroceryLists());
+    } catch {
+      Alert.alert('Error', 'Could not load your grocery lists.');
     } finally {
       setLoading(false);
     }
@@ -55,7 +44,7 @@ export default function AddToGroceryListModal({ visible, onClose, lines }: Props
       const additions = cleanLines
         .filter((l) => !existing.has(l.toLowerCase()))
         .map((name) => ({ name, checked: false }));
-      await setDoc(doc(db, 'groceryLists', list.id), { items: [...list.items, ...additions] }, { merge: true });
+      await saveGroceryItems(list.id, [...list.items, ...additions]);
       finish(additions.length);
     } catch {
       Alert.alert('Error', 'Could not update the list.');
@@ -65,14 +54,13 @@ export default function AddToGroceryListModal({ visible, onClose, lines }: Props
   };
 
   const createWithItems = async () => {
-    const user = auth.currentUser;
     const name = newName.trim();
-    if (!user || !name) return;
+    if (!auth.currentUser || !name) return;
     setBusyId('__new__');
     try {
-      const items = cleanLines.map((n) => ({ name: n, checked: false }));
-      await addDoc(collection(db, 'groceryLists'), { name, userId: user.uid, items });
-      finish(items.length);
+      // The create route takes names, not item objects.
+      await createGroceryList(name, cleanLines);
+      finish(cleanLines.length);
     } catch {
       Alert.alert('Error', 'Could not create the list.');
     } finally {
