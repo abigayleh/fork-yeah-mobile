@@ -64,7 +64,7 @@ export default function SavedRecipesScreen() {
         onPress={() => selectFolder(item)}
         onLongPress={drag}
       >
-        <Text style={[styles.chipText, selected && styles.chipTextActive]}>{item.parentId ? '› ' : ''}{item.name}</Text>
+        <Text style={[styles.chipText, selected && styles.chipTextActive]}>{item.name}</Text>
       </TouchableOpacity>
     );
   };
