@@ -100,8 +100,9 @@ export default function GroceryListCard({ list, expanded, onToggleExpand, onRena
           textStyle={(line) => (line.checked ? styles.checkedText : undefined)}
           showDragHandle={false}
           deleteOnSwipe
+          // Checking an item is how you get rid of it — the tap removes the line outright.
           renderPrefix={(line, index, _indented, drag) => (
-            <TouchableOpacity onPress={() => editor.toggleItemChecked(index)} onLongPress={drag} style={styles.checkbox} hitSlop={8}>
+            <TouchableOpacity onPress={() => editor.removeLine(index)} onLongPress={drag} style={styles.checkbox} hitSlop={8}>
               <Ionicons name={line.checked ? 'checkbox' : 'square-outline'} size={17} color="#0f766e" />
             </TouchableOpacity>
           )}

@@ -22,11 +22,6 @@ export function useGroceryItemsEditor(initialItems: GroceryItem[]) {
   });
 
   const updateItemText = (index: number, text: string) => editable.updateLine(index, { text });
-  const toggleItemChecked = (index: number) => {
-    const current = editable.lines[index];
-    if (!current) return;
-    editable.updateLine(index, { checked: !current.checked } as Partial<GroceryItemLine>);
-  };
 
   // Blank lines are dropped whenever the list is persisted (not just at an explicit
   // "save" step, since grocery lists autosave on every change).
@@ -35,7 +30,7 @@ export function useGroceryItemsEditor(initialItems: GroceryItem[]) {
       .filter((line) => line.text.trim())
       .map((line) => ({ name: line.text.trim(), checked: line.checked }));
 
-  return { ...editable, items: editable.lines, updateItemText, toggleItemChecked, toGroceryItems };
+  return { ...editable, items: editable.lines, updateItemText, toGroceryItems };
 }
 
 export type GroceryItemsEditorState = ReturnType<typeof useGroceryItemsEditor>;
