@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { auth } from '../../../../lib/firebase';
 import {
@@ -8,6 +9,7 @@ import {
 import GroceryListCard from '../../../../components/GroceryListCard';
 import NamePromptModal from '../../../../components/NamePromptModal';
 import type { GroceryItem } from '../../../../hooks/useGroceryItemsEditor';
+import { writeGrocerySnapshot } from '../../../../lib/widgetSnapshot';
 
 export default function GroceryListsScreen() {
   const [lists, setLists] = useState<GroceryList[]>([]);
@@ -15,6 +17,8 @@ export default function GroceryListsScreen() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [createOpen, setCreateOpen] = useState(false);
   const [renamingList, setRenamingList] = useState<GroceryList | null>(null);
+  const [pendingAddId, setPendingAddId] = useState<string | null>(null);
+  const { list: listParam, add } = useLocalSearchParams<{ list?: string; add?: string }>();
 
   const loadLists = async () => {
     if (!auth.currentUser) return;
@@ -29,6 +33,16 @@ export default function GroceryListsScreen() {
   };
 
   useEffect(() => { loadLists(); }, []);
+
+  useEffect(() => { if (!loading) writeGrocerySnapshot(lists); }, [lists, loading]);
+
+  // Arriving from a widget: open the list it was showing, and its quick-add sheet.
+  useEffect(() => {
+    if (loading || !listParam || !lists.some((l) => l.id === listParam)) return;
+    setExpandedIds((prev) => new Set(prev).add(listParam));
+    if (add === '1') setPendingAddId(listParam);
+    router.setParams({ list: undefined, add: undefined });
+  }, [loading, listParam, add, lists]);
 
   const toggleExpanded = (id: string) => {
     setExpandedIds((prev) => {
@@ -106,6 +120,8 @@ export default function GroceryListsScreen() {
                 onRenameList={() => setRenamingList(item)}
                 onDeleteList={() => handleDelete(item.id)}
                 onSaveItems={(items) => handleSaveItems(item.id, items)}
+                requestQuickAdd={pendingAddId === item.id}
+                onQuickAddOpened={() => setPendingAddId(null)}
               />
             ))
           )}

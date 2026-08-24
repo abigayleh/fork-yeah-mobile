@@ -1,5 +1,7 @@
-import { Slot, useRouter, useSegments, useRootNavigationState } from 'expo-router';
-import { useEffect } from 'react';
+import {
+  Slot, useRouter, useSegments, useRootNavigationState, usePathname, useGlobalSearchParams,
+} from 'expo-router';
+import { useEffect, useRef } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -15,6 +17,10 @@ function RootNavigator() {
   const segments = useSegments();
   const router = useRouter();
   const navState = useRootNavigationState();
+  const pathname = usePathname();
+  const params = useGlobalSearchParams();
+  // Where a widget tap was headed before the login redirect took over.
+  const pendingHref = useRef<{ pathname: string; params: Record<string, string | string[]> } | null>(null);
 
   useEffect(() => {
     if (!navState?.key || loading) return;
@@ -23,9 +29,12 @@ function RootNavigator() {
     const path = segments as string[];
     const allowedForGuest = path[0] === '(app)' && (path[2] === 'browse-recipes' || path[1] === 'recipe');
     if (!user && !inAuthGroup && !allowedForGuest) {
+      pendingHref.current = { pathname, params };
       router.replace('/(auth)/login');
     } else if (user && !inAppGroup) {
-      router.replace('/(app)/browse-recipes');
+      const target = pendingHref.current;
+      pendingHref.current = null;
+      router.replace(target ?? '/(app)/browse-recipes');
     }
   }, [user, loading, segments, router, navState?.key]);
 

@@ -4,10 +4,13 @@ import {
   TextInput, TouchableOpacity, View, ScrollView, Image,
 } from 'react-native';
 import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
+import { router, useLocalSearchParams } from 'expo-router';
 import { auth } from '../../../lib/firebase';
 import { createMealPlan, deleteMealPlan, fetchMealPlans } from '../../../lib/mealPlanApi';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useSavedRecipesBrowser, SavedRecipe, SavedRecipeSection, FolderItem } from '../../../hooks/useSavedRecipesBrowser';
+import { writeMealSnapshot } from '../../../lib/widgetSnapshot';
+import { fromDateKey, toDateKey } from '../../../utils/dateKey';
 
 const MEAL_TYPES = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'] as const;
 const API_KEY = process.env.EXPO_PUBLIC_SPOONACULAR_API_KEY ?? '';
@@ -28,7 +31,6 @@ function getWeekDates(start: Date): Date[] {
   });
 }
 
-const toDateKey = (d: Date) => d.toISOString().slice(0, 10);
 const toDisplayLabel = (d: Date) =>
   new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' }).format(d);
 const toFirestoreType = (label: string) => (label.toLowerCase() === 'snacks' ? 'snack' : label.toLowerCase());
@@ -40,12 +42,16 @@ const ordinal = (day: number) => {
   return `${day}th`;
 };
 const toLongDisplayLabel = (dateKey: string) => {
-  const [year, month, day] = dateKey.split('-').map(Number);
-  const monthName = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date(year, month - 1, day));
-  return `${monthName} ${ordinal(day)}, ${year}`;
+  const date = fromDateKey(dateKey);
+  const monthName = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(date);
+  return `${monthName} ${ordinal(date.getDate())}, ${date.getFullYear()}`;
 };
 
-type MealEntry = { id: string; recipeId: string; title: string; image: string; isMyRecipe: boolean };
+// Maps a widget's Firestore meal type ('dinner', 'snack') back to its display label.
+const toMealLabel = (type: string) =>
+  MEAL_TYPES.find((label) => toFirestoreType(label) === type.toLowerCase());
+
+type MealEntry = { id: string; recipeId: string; title: string; image: string; isMyRecipe: boolean; servings: number };
 
 export default function MealPlannerScreen() {
   const { getMyRecipes } = useAuth();
@@ -59,6 +65,7 @@ export default function MealPlannerScreen() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerCell, setPickerCell] = useState<{ date: string; type: string } | null>(null);
   const browser = useSavedRecipesBrowser();
+  const { date: dateParam, type: typeParam } = useLocalSearchParams<{ date?: string; type?: string }>();
 
   const [pendingRecipe, setPendingRecipe] = useState<SavedRecipe | null>(null);
   const [servings, setServings] = useState('2');
@@ -117,6 +124,7 @@ export default function MealPlannerScreen() {
           title: String(data.title || resolved?.title || recipeId),
           image: String(data.image || resolved?.image || ''),
           isMyRecipe: Boolean(data.isMyRecipe),
+          servings: Number(data.servings) || 2,
         };
       });
       setMealPlans(entries);
@@ -128,6 +136,19 @@ export default function MealPlannerScreen() {
   }, []);
 
   useEffect(() => { loadMealPlans(); }, [loadMealPlans]);
+
+  useEffect(() => { if (!loading) writeMealSnapshot(mealPlans, new Date()); }, [mealPlans, loading]);
+
+  // Arriving from a widget's empty slot: jump to that week and open its picker.
+  useEffect(() => {
+    if (loading || !dateParam || !typeParam) return;
+    const mealLabel = toMealLabel(typeParam);
+    if (!mealLabel) return;
+    setWeekStart(getWeekStart(fromDateKey(dateParam)));
+    openPicker(dateParam, mealLabel);
+    router.setParams({ date: undefined, type: undefined });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, dateParam, typeParam]);
 
   const openPicker = (dateKey: string, type: string) => {
     setPickerCell({ date: dateKey, type });
@@ -153,11 +174,12 @@ export default function MealPlannerScreen() {
     if (!user || !pickerCell || !pendingRecipe) return;
     setSaving(true);
     const fsType = toFirestoreType(pickerCell.type);
+    const servingCount = Math.max(1, parseInt(servings, 10) || 2);
     try {
       const created = await createMealPlan({
         recipeId: pendingRecipe.id,
         isMyRecipe: pendingRecipe.isMyRecipe,
-        servings: Math.max(1, parseInt(servings, 10) || 2),
+        servings: servingCount,
         date: pickerCell.date,
         type: fsType,
       });
@@ -169,6 +191,7 @@ export default function MealPlannerScreen() {
           title: pendingRecipe.title,
           image: pendingRecipe.image,
           isMyRecipe: pendingRecipe.isMyRecipe,
+          servings: servingCount,
         },
       }));
       closePicker();

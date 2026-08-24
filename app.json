@@ -11,6 +11,11 @@
       "bundleIdentifier": "com.hammyinc.whatsfordinner",
       "supportsTablet": true,
       "usesAppleSignIn": true,
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.com.hammyinc.whatsfordinner"
+        ]
+      },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleURLTypes": [
@@ -54,11 +59,12 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Fork Yeah needs access to your photo library so you can add a photo to a recipe you create — for example, a picture of the finished dish to show on the recipe card.",
+          "photosPermission": "Fork Yeah needs access to your photo library so you can add a photo to a recipe you create \u2014 for example, a picture of the finished dish to show on the recipe card.",
           "cameraPermission": false,
           "microphonePermission": false
         }
-      ]
+      ],
+      "@bacons/apple-targets"
     ],
     "extra": {
       "router": {},

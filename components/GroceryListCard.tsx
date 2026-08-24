@@ -16,9 +16,14 @@ type Props = {
   onRenameList: () => void;
   onDeleteList: () => void;
   onSaveItems: (items: GroceryItem[]) => void;
+  requestQuickAdd?: boolean;
+  onQuickAddOpened?: () => void;
 };
 
-export default function GroceryListCard({ list, expanded, onToggleExpand, onRenameList, onDeleteList, onSaveItems }: Props) {
+export default function GroceryListCard({
+  list, expanded, onToggleExpand, onRenameList, onDeleteList, onSaveItems,
+  requestQuickAdd, onQuickAddOpened,
+}: Props) {
   const editor = useGroceryItemsEditor(list.items);
   const isFirstRender = useRef(true);
 
@@ -37,6 +42,14 @@ export default function GroceryListCard({ list, expanded, onToggleExpand, onRena
   const itemCount = editor.items.filter((item) => item.text.trim()).length;
 
   const [quickOpen, setQuickOpen] = useState(false);
+
+  // The widget's "Add an item" deep link lands here.
+  useEffect(() => {
+    if (!requestQuickAdd) return;
+    setQuickOpen(true);
+    onQuickAddOpened?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestQuickAdd]);
 
   const handleAutoSort = () => {
     editor.resetLines(sortGroceryByCategory(editor.items, (line) => line.text));

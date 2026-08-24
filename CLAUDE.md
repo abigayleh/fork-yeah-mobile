@@ -47,6 +47,13 @@ hooks are thin state wrappers over it. Keep new Firestore access in `lib/`.
 Gotcha this suite exists for: a query the rules can't evaluate (any `list` on
 `families`) is denied outright, and a rules-disabled test suite will never see it.
 
+## Dates
+
+Meal-plan date keys (`YYYY-MM-DD`) are **local calendar days** — always derive them
+with `toDateKey` from `utils/dateKey.ts`, never `toISOString().slice(0, 10)`. The
+planner builds cells at local midnight, which UTC renders as the previous day from
+UTC+1 eastward; `tests/dateKey.test.ts` pins this and must pass under any `TZ`.
+
 ## Codebase Exploration & Knowledge Sharing
 
 Before starting non-trivial work, especially in an unfamiliar part of the codebase, explore first:

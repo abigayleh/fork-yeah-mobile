@@ -22,6 +22,7 @@ import { auth } from '../lib/firebase';
 import { useUserDataContext } from '../hooks/useUserDataContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRecipeApi } from '../hooks/useRecipeApi';
+import { writeSessionSnapshot } from '../lib/widgetSnapshot';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -80,6 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
       setLoading(false);
+      writeSessionSnapshot(Boolean(firebaseUser));
       if (!firebaseUser) {
         queryClient.clear();
       }
