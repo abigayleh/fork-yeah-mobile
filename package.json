@@ -1,6 +1,6 @@
 {
   "name": "fork-yeah-mobile",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "main": "index.ts",
   "dependencies": {
     "@bacons/apple-targets": "^5.0.0",
