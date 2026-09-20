@@ -14,9 +14,16 @@ let inFlightRequest: Promise<{ recipes?: BrowseRecipe[] }> | null = null;
 const hasValidImage = (image: unknown): image is string =>
   typeof image === 'string' && image.trim().length > 0;
 
+// Spoonacular reports quota/key problems as a JSON body, not an empty result.
+const assertOk = <T extends { status?: string; message?: string }>(data: T): T => {
+  if (data?.status === 'failure') throw new Error(data.message ?? 'Recipe service unavailable');
+  return data;
+};
+
 export function useBrowseRecipes() {
   const [recipeList, setRecipeList] = useState<BrowseRecipe[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [filterModalOpen, setFilterModalOpen] = useState(false);
@@ -86,6 +93,7 @@ export function useBrowseRecipes() {
     const background = append || (forceRefresh && hasExisting);
 
     try {
+      setError(null);
       if (background) setIsFetchingMore(true);
       else setLoading(true);
 
@@ -104,12 +112,13 @@ export function useBrowseRecipes() {
           inFlightRequest = throttle()
             .then(() => fetch(`https://api.spoonacular.com/recipes/random?number=20&apiKey=${API_KEY}`))
             .then((r) => r.json())
+            .then(assertOk)
             .finally(() => { inFlightRequest = null; });
         }
 
         const data = append || forceRefresh
           ? await throttle().then(() =>
-              fetch(`https://api.spoonacular.com/recipes/random?number=20&apiKey=${API_KEY}`).then((r) => r.json())
+              fetch(`https://api.spoonacular.com/recipes/random?number=20&apiKey=${API_KEY}`).then((r) => r.json()).then(assertOk)
             )
           : await inFlightRequest;
 
@@ -145,7 +154,7 @@ export function useBrowseRecipes() {
           mealTypes.length ? `&type=${mealTypes.join(',')}` : '',
         ].join('');
 
-        const data = await fetch(url).then((r) => r.json());
+        const data = assertOk(await fetch(url).then((r) => r.json()));
         const raw = Array.isArray(data?.results) ? data.results as BrowseRecipe[] : [];
         const next = raw.filter((r) => hasValidImage(r?.image));
 
@@ -158,6 +167,7 @@ export function useBrowseRecipes() {
       }
     } catch (err) {
       console.error('Browse recipes fetch error:', err);
+      setError(err instanceof Error ? err.message : 'Could not load recipes');
     } finally {
       setLoading(false);
       setIsFetchingMore(false);
@@ -212,6 +222,7 @@ export function useBrowseRecipes() {
   return {
     recipeList,
     loading,
+    error,
     isFetchingMore,
     hasMore,
     filterModalOpen,

@@ -8,7 +8,7 @@ struct SignedOutView: View {
       Image(systemName: "lock")
         .font(.system(size: 26, weight: .light))
         .foregroundStyle(Color.accent)
-      Text("Sign in to Fork Yeah")
+      Text("Sign in to Whats for Dinner")
         .font(.system(size: 14, weight: .bold))
         .foregroundStyle(Color.heading)
       Text("Your lists and meal plan will show up here once you are signed in.")

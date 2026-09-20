@@ -32,8 +32,8 @@ export default function OnboardingGate({ children }: { children: React.ReactNode
   };
 
   const enable = async () => {
-    const ok = await authenticateBiometric();
-    if (ok) await setBiometricLockEnabled(true);
+    const { success } = await authenticateBiometric();
+    if (success) await setBiometricLockEnabled(true);
     await dismiss();
   };
 
@@ -44,7 +44,7 @@ export default function OnboardingGate({ children }: { children: React.ReactNode
         <View style={styles.overlay}>
           <Ionicons name="lock-closed" size={56} color="#0f766e" />
           <Text style={styles.title}>Enable Face ID?</Text>
-          <Text style={styles.subtitle}>Require Face ID to open Fork Yeah. You can change this later in Settings.</Text>
+          <Text style={styles.subtitle}>Require Face ID to open Whats for Dinner. You can change this later in Settings.</Text>
           <TouchableOpacity style={styles.btn} onPress={enable}>
             <Text style={styles.btnText}>Enable Face ID</Text>
           </TouchableOpacity>

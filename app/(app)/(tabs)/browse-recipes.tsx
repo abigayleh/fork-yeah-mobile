@@ -46,7 +46,7 @@ function RangeInput({ label, value, onChange, unit }: { label: string; value: [n
 
 export default function BrowseRecipesScreen() {
   const {
-    recipeList, loading, isFetchingMore, filterModalOpen,
+    recipeList, loading, error, isFetchingMore, filterModalOpen,
     searchInput, setFilterModalOpen, setSearchInput,
     handleRefreshRecipes, loadMore, filterProps,
   } = useBrowseRecipes();
@@ -173,7 +173,11 @@ export default function BrowseRecipesScreen() {
               onWantToTry={() => toggleWantToTry(String(item.id))}
             />
           )}
-          ListEmptyComponent={<Text style={styles.emptyText}>No recipes found. Try different filters.</Text>}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>
+              {error ? `Couldn't load recipes (${error}). Pull ↺ Refresh to retry.` : 'No recipes found. Try different filters.'}
+            </Text>
+          }
           ListFooterComponent={isFetchingMore ? <ActivityIndicator color="#0f766e" style={styles.footerLoader} /> : null}
         />
       )}

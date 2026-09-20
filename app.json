@@ -53,13 +53,13 @@
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "Allow Fork Yeah to use Face ID to unlock the app."
+          "faceIDPermission": "Allow Whats for Dinner to use Face ID to unlock the app."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Fork Yeah needs access to your photo library so you can add a photo to a recipe you create \u2014 for example, a picture of the finished dish to show on the recipe card.",
+          "photosPermission": "Whats for Dinner needs access to your photo library so you can add a photo to a recipe you create \u2014 for example, a picture of the finished dish to show on the recipe card.",
           "cameraPermission": false,
           "microphonePermission": false
         }

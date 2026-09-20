@@ -1,8 +1,8 @@
-# Fork Yeah 🍴
+# Whats for Dinner 🍴
 
 **Recipes, meal planning & smart grocery lists — for the whole family.**
 
-Fork Yeah turns *"what's for dinner?"* into the easiest question of your day. Discover recipes you'll actually cook, drop them onto a weekly plan, and turn any plan into a shared grocery list your whole household can check off together.
+Whats for Dinner turns *"what's for dinner?"* into the easiest question of your day. Discover recipes you'll actually cook, drop them onto a weekly plan, and turn any plan into a shared grocery list your whole household can check off together.
 
 Built with [Expo](https://expo.dev) + React Native, backed by Firebase, with recipe data from [Spoonacular](https://spoonacular.com/food-api).
 
@@ -96,4 +96,4 @@ store-assets/             # App Store screenshots
 
 ---
 
-*Fork Yeah — cook more, waste less.* 🍴
+*Whats for Dinner — cook more, waste less.* 🍴

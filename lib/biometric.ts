@@ -26,10 +26,23 @@ export const setBiometricOnboardingSeen = (): Promise<void> => {
   return AsyncStorage.setItem(ONBOARDING_SEEN_KEY, 'true');
 };
 
-export const authenticateBiometric = async (): Promise<boolean> => {
-  const result = await LocalAuthentication.authenticateAsync({
-    promptMessage: 'Unlock Fork Yeah',
-    fallbackLabel: 'Use password',
-  });
-  return result.success;
+// The system sheet flips AppState inactive->active; callers ignore that for a moment after it closes.
+const GRACE_MS = 1500;
+let authenticating = false;
+let endedAt = 0;
+
+export const isBiometricPromptActive = (): boolean =>
+  authenticating || Date.now() - endedAt < GRACE_MS;
+
+export const authenticateBiometric = async () => {
+  authenticating = true;
+  try {
+    return await LocalAuthentication.authenticateAsync({
+      promptMessage: 'Unlock Whats for Dinner',
+      fallbackLabel: 'Use password',
+    });
+  } finally {
+    authenticating = false;
+    endedAt = Date.now();
+  }
 };
