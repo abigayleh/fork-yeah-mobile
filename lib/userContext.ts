@@ -54,6 +54,13 @@ export const resolveFamilyUserIds = async (profile: Profile | null, currentUserI
   return ids.length === 0 ? fallback : Array.from(new Set(ids));
 };
 
+export type UserContext = { profile: Profile | null; familyUserIds: string[] };
+
+export const readUserContext = async (uid: string): Promise<UserContext> => {
+  const profile = await readUserProfile(uid);
+  return { profile, familyUserIds: await resolveFamilyUserIds(profile, uid) };
+};
+
 export const readUsersByIds = async (userIds: string[] = []) => {
   if (userIds.length === 0) return [];
   const users = await Promise.all(

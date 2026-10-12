@@ -23,6 +23,7 @@ import { useUserDataContext } from '../hooks/useUserDataContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRecipeApi } from '../hooks/useRecipeApi';
 import { writeSessionSnapshot } from '../lib/widgetSnapshot';
+import { clearPersistedCache, persistOnChange, restoreQueryCache } from '../lib/queryPersistence';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -77,16 +78,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [googleResponse]);
 
+  // `loading` also covers the disk cache: it is restored before the first user is published.
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    let restored: Promise<void> | null = null;
+    let lastUid: string | null = null;
+    let stopPersisting: (() => void) | undefined;
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      const uid = firebaseUser?.uid ?? null;
+      restored ??= restoreQueryCache(queryClient, uid);
+      await restored;
+      stopPersisting ??= persistOnChange(queryClient, () => auth.currentUser?.uid ?? null);
+      if (lastUid && lastUid !== uid) {
+        queryClient.clear();
+        clearPersistedCache();
+      }
+      lastUid = uid;
       setUser(firebaseUser);
       setLoading(false);
       writeSessionSnapshot(Boolean(firebaseUser));
-      if (!firebaseUser) {
-        queryClient.clear();
-      }
     });
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      stopPersisting?.();
+    };
   }, [queryClient]);
 
   const userDataApi = useUserDataContext(user);
