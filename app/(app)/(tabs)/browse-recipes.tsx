@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   View, Text, TextInput, FlatList, TouchableOpacity, Modal,
   StyleSheet, ActivityIndicator, ScrollView,
 } from 'react-native';
 import RecipeCard from '../../../components/RecipeCard';
 import { useBrowseRecipes } from '../../../hooks/useBrowseRecipes';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useSavedStatuses } from '../../../hooks/useSavedStatuses';
 
 const CUISINES = ['African', 'American', 'British', 'Chinese', 'French', 'Greek', 'Indian', 'Italian', 'Japanese', 'Korean', 'Mediterranean', 'Mexican', 'Middle Eastern', 'Thai', 'Vietnamese'];
 const DIETS = ['Gluten Free', 'Ketogenic', 'Vegetarian', 'Vegan', 'Pescetarian', 'Paleo', 'Whole30'];
@@ -51,34 +51,7 @@ export default function BrowseRecipesScreen() {
     handleRefreshRecipes, loadMore, filterProps,
   } = useBrowseRecipes();
 
-  const { addRecipeToUser, getUserRecipes } = useAuth();
-  const [savedStatus, setSavedStatus] = useState<Record<string, { favorite: boolean; wantToTry: boolean }>>({});
-
-  useEffect(() => {
-    getUserRecipes().then((data) => {
-      const status: Record<string, { favorite: boolean; wantToTry: boolean }> = {};
-      (data ?? []).forEach((r: Record<string, unknown>) => {
-        status[String(r.recipeId)] = { favorite: Boolean(r.favorite), wantToTry: Boolean(r.wantToTry) };
-      });
-      setSavedStatus(status);
-    }).catch(() => {});
-  }, []);
-
-  const toggleFavorite = async (recipeId: string) => {
-    setSavedStatus((prev) => ({
-      ...prev,
-      [recipeId]: { ...prev[recipeId], favorite: !prev[recipeId]?.favorite },
-    }));
-    await addRecipeToUser(recipeId, 'favorite', null);
-  };
-
-  const toggleWantToTry = async (recipeId: string) => {
-    setSavedStatus((prev) => ({
-      ...prev,
-      [recipeId]: { ...prev[recipeId], wantToTry: !prev[recipeId]?.wantToTry },
-    }));
-    await addRecipeToUser(recipeId, 'wantToTry', null);
-  };
+  const { savedStatus, toggleSaved } = useSavedStatuses();
 
   const [pendingCuisines, setPendingCuisines] = useState<string[]>(filterProps.cuisines);
   const [pendingDiets, setPendingDiets] = useState<string[]>(filterProps.diets);
@@ -169,8 +142,8 @@ export default function BrowseRecipesScreen() {
               isMyRecipe={false}
               isFavorited={savedStatus[String(item.id)]?.favorite}
               isWantToTry={savedStatus[String(item.id)]?.wantToTry}
-              onFavorite={() => toggleFavorite(String(item.id))}
-              onWantToTry={() => toggleWantToTry(String(item.id))}
+              onFavorite={() => toggleSaved(String(item.id), 'favorite')}
+              onWantToTry={() => toggleSaved(String(item.id), 'wantToTry')}
             />
           )}
           ListEmptyComponent={

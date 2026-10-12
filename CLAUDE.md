@@ -47,6 +47,19 @@ hooks are thin state wrappers over it. Keep new Firestore access in `lib/`.
 Gotcha this suite exists for: a query the rules can't evaluate (any `list` on
 `families`) is denied outright, and a rules-disabled test suite will never see it.
 
+## On-device cache
+
+Firestore's JS SDK has no disk persistence on React Native, so cold-start speed comes
+from `lib/queryPersistence.ts`: it writes an allow-list of React Query keys to
+AsyncStorage and restores them in `AuthContext` before `loading` clears. To make a
+screen paint from disk, read through `useQuery` and add the key's prefix there.
+
+- The cache is tagged with the uid and wiped on sign-out; never persist outside it.
+- Restored data is plain JSON — Firestore `Timestamp`s come back without methods.
+- Spoonacular's terms allow storing only a recipe's **id, title and image**. Anything
+  else (ingredients, instructions) must stay in memory.
+- Custom recipe photos are base64 inside the doc; strip them before persisting recipes.
+
 ## Dates
 
 Meal-plan date keys (`YYYY-MM-DD`) are **local calendar days** — always derive them

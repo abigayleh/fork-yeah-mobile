@@ -1,4 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useQueryClient } from '@tanstack/react-query';
 import {
   addDoc,
   collection,
@@ -15,6 +15,14 @@ import { auth, db } from '../lib/firebase';
 import { fetchDocsForFamily, withCurrentUser } from '../lib/familyData';
 
 type RecipeRef = { recipeId: string; isMyRecipe: boolean };
+
+// Every family member's saved-recipe docs; familyUserIds must already include the user.
+export const userRecipesQuery = (userId: string, familyUserIds: string[]) =>
+  queryOptions({
+    queryKey: ['userRecipes', { userId, familyUserIds }],
+    queryFn: () => fetchDocsForFamily('userRecipes', familyUserIds),
+    staleTime: 60_000,
+  });
 
 export function useRecipeApi(getFamilyUserIdsForCurrentUser: () => Promise<string[]>) {
   const queryClient = useQueryClient();
@@ -111,11 +119,7 @@ export function useRecipeApi(getFamilyUserIdsForCurrentUser: () => Promise<strin
     const user = auth.currentUser;
     if (!user) return [];
     const familyUserIds = await resolveFamilyUserIds(user.uid);
-    return queryClient.fetchQuery({
-      queryKey: ['userRecipes', { userId: user.uid, familyUserIds }],
-      queryFn: () => fetchDocsForFamily('userRecipes', familyUserIds),
-      staleTime: 60_000,
-    });
+    return queryClient.fetchQuery(userRecipesQuery(user.uid, familyUserIds));
   };
 
   const getUserFolders = async () => {

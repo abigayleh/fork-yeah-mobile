@@ -41,6 +41,7 @@ export default function RecipeDetailScreen() {
     queryKey: ['spoonacularRecipe', id],
     enabled: Boolean(id),
     staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       const res = await fetch(`https://api.spoonacular.com/recipes/${id}/information?apiKey=${API_KEY}`);
       if (!res.ok) throw new Error('Failed to fetch recipe');

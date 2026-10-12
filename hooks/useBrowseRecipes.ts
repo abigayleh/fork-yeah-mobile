@@ -1,15 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { loadBrowseFilters, saveBrowseFilters } from '../utils/browseFiltersStorage';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
+import { useAuth } from '../contexts/AuthContext';
+import { firstPage } from '../lib/queryPersistence';
+import { loadBrowseFilters, saveBrowseFilters, type BrowseFilters } from '../utils/browseFiltersStorage';
 
 const API_KEY = process.env.EXPO_PUBLIC_SPOONACULAR_API_KEY ?? '';
-const CACHE_TTL = 5 * 60 * 1000;
+const API_URL = 'https://api.spoonacular.com/recipes';
+const PAGE_SIZE = 20;
+const SEARCH_STALE_TIME = 5 * 60 * 1000;
+// The random feed only changes on Refresh or once a day, so a relaunch never reshuffles it.
+const RANDOM_STALE_TIME = 24 * 60 * 60 * 1000;
 const MIN_API_INTERVAL = 2000;
 
 type BrowseRecipe = { id: number | string; title: string; image: string };
-type Cache = { recipes: BrowseRecipe[]; cachedAt: number };
-
-let defaultCache: Cache | null = null;
-let inFlightRequest: Promise<{ recipes?: BrowseRecipe[] }> | null = null;
+// rawCount is what the API returned, before image-less recipes were dropped.
+type BrowsePage = { recipes: BrowseRecipe[]; rawCount: number };
 
 const hasValidImage = (image: unknown): image is string =>
   typeof image === 'string' && image.trim().length > 0;
@@ -20,12 +25,26 @@ const assertOk = <T extends { status?: string; message?: string }>(data: T): T =
   return data;
 };
 
+const searchUrl = (f: BrowseFilters, offset: number) => [
+  `${API_URL}/complexSearch?number=${PAGE_SIZE}&apiKey=${API_KEY}`,
+  `&offset=${offset}`,
+  f.query ? `&query=${encodeURIComponent(f.query)}` : '',
+  `&minProtein=${f.protein[0]}&maxProtein=${f.protein[1]}`,
+  `&minCarbs=${f.carbs[0]}&maxCarbs=${f.carbs[1]}`,
+  `&minFat=${f.fat[0]}&maxFat=${f.fat[1]}`,
+  `&minSugar=${f.sugar[0]}&maxSugar=${f.sugar[1]}`,
+  `&maxCookingTime=${f.cookingTime[1]}`,
+  `&maxPrice=${f.price[1]}`,
+  f.ingredients.length ? `&includeIngredients=${f.ingredients.join(',')}` : '',
+  f.cuisines.length ? `&cuisine=${f.cuisines.join(',')}` : '',
+  f.diets.length ? `&diet=${f.diets.join(',')}` : '',
+  f.blacklists.length ? `&excludeIngredients=${f.blacklists.join(',')}` : '',
+  f.mealTypes.length ? `&type=${f.mealTypes.join(',')}` : '',
+].join('');
+
 export function useBrowseRecipes() {
-  const [recipeList, setRecipeList] = useState<BrowseRecipe[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isFetchingMore, setIsFetchingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
+  const queryClient = useQueryClient();
+  const { loading: restoringCache } = useAuth();
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
@@ -43,7 +62,6 @@ export function useBrowseRecipes() {
   const [mealTypes, setMealTypes] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
-  const recipeCountRef = useRef(0);
   const lastApiRequestAtRef = useRef(0);
 
   useEffect(() => {
@@ -88,143 +106,76 @@ export function useBrowseRecipes() {
     diets.length === 0 && blacklists.length === 0 &&
     mealTypes.length === 0 && appliedSearchQuery.trim().length === 0;
 
-  const fetchRecipes = useCallback(async (forceRefresh = false, append = false) => {
-    const hasExisting = recipeCountRef.current > 0;
-    const background = append || (forceRefresh && hasExisting);
+  const filters: BrowseFilters = useMemo(() => ({
+    protein, carbs, fat, sugar, cookingTime, price,
+    ingredients, cuisines, diets, blacklists, mealTypes,
+    query: appliedSearchQuery,
+  }), [protein, carbs, fat, sugar, cookingTime, price, ingredients, cuisines, diets, blacklists, mealTypes, appliedSearchQuery]);
 
-    try {
-      setError(null);
-      if (background) setIsFetchingMore(true);
-      else setLoading(true);
+  const queryKey = ['browse', filters];
+  const query = useInfiniteQuery({
+    queryKey,
+    // Only id, title and image are kept: all the list needs, and all that may be stored.
+    queryFn: async ({ pageParam }): Promise<BrowsePage> => {
+      await throttle();
+      const url = filterIsEmpty
+        ? `${API_URL}/random?number=${PAGE_SIZE}&apiKey=${API_KEY}`
+        : searchUrl(filters, pageParam);
+      const data = assertOk(await fetch(url).then((r) => r.json()));
+      const found = filterIsEmpty ? data?.recipes : data?.results;
+      const raw: BrowseRecipe[] = Array.isArray(found) ? found : [];
+      return {
+        rawCount: raw.length,
+        recipes: raw.filter((r) => hasValidImage(r?.image)).map(({ id, title, image }) => ({ id, title, image })),
+      };
+    },
+    initialPageParam: 0,
+    getNextPageParam: (last, pages) =>
+      filterIsEmpty || last.rawCount === PAGE_SIZE ? pages.reduce((n, p) => n + p.rawCount, 0) : undefined,
+    // Wait for the saved filters and the disk cache, or launch would fetch what is already stored.
+    enabled: hydrated && !restoringCache,
+    staleTime: filterIsEmpty ? RANDOM_STALE_TIME : SEARCH_STALE_TIME,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
 
-      if (filterIsEmpty) {
-        if (!append && !forceRefresh && defaultCache) {
-          const fresh = Date.now() - defaultCache.cachedAt < CACHE_TTL;
-          if (fresh && defaultCache.recipes.length > 0) {
-            setRecipeList(defaultCache.recipes);
-            recipeCountRef.current = defaultCache.recipes.length;
-            setLoading(false);
-            return;
-          }
-        }
-
-        if (!append && !forceRefresh && !inFlightRequest) {
-          inFlightRequest = throttle()
-            .then(() => fetch(`https://api.spoonacular.com/recipes/random?number=20&apiKey=${API_KEY}`))
-            .then((r) => r.json())
-            .then(assertOk)
-            .finally(() => { inFlightRequest = null; });
-        }
-
-        const data = append || forceRefresh
-          ? await throttle().then(() =>
-              fetch(`https://api.spoonacular.com/recipes/random?number=20&apiKey=${API_KEY}`).then((r) => r.json()).then(assertOk)
-            )
-          : await inFlightRequest;
-
-        const next = Array.isArray(data?.recipes)
-          ? (data.recipes as BrowseRecipe[]).filter((r) => hasValidImage(r?.image))
-          : [];
-
-        setRecipeList((prev) => {
-          const updated = append ? [...prev, ...next] : next;
-          recipeCountRef.current = updated.length;
-          return updated;
-        });
-
-        if (!append) defaultCache = { recipes: next, cachedAt: Date.now() };
-        setHasMore(true);
-      } else {
-        const offset = append ? recipeCountRef.current : 0;
-        await throttle();
-        const url = [
-          `https://api.spoonacular.com/recipes/complexSearch?number=20&apiKey=${API_KEY}`,
-          `&offset=${offset}`,
-          appliedSearchQuery ? `&query=${encodeURIComponent(appliedSearchQuery)}` : '',
-          `&minProtein=${protein[0]}&maxProtein=${protein[1]}`,
-          `&minCarbs=${carbs[0]}&maxCarbs=${carbs[1]}`,
-          `&minFat=${fat[0]}&maxFat=${fat[1]}`,
-          `&minSugar=${sugar[0]}&maxSugar=${sugar[1]}`,
-          `&maxCookingTime=${cookingTime[1]}`,
-          `&maxPrice=${price[1]}`,
-          ingredients.length ? `&includeIngredients=${ingredients.join(',')}` : '',
-          cuisines.length ? `&cuisine=${cuisines.join(',')}` : '',
-          diets.length ? `&diet=${diets.join(',')}` : '',
-          blacklists.length ? `&excludeIngredients=${blacklists.join(',')}` : '',
-          mealTypes.length ? `&type=${mealTypes.join(',')}` : '',
-        ].join('');
-
-        const data = assertOk(await fetch(url).then((r) => r.json()));
-        const raw = Array.isArray(data?.results) ? data.results as BrowseRecipe[] : [];
-        const next = raw.filter((r) => hasValidImage(r?.image));
-
-        setRecipeList((prev) => {
-          const updated = append ? [...prev, ...next] : next;
-          recipeCountRef.current = updated.length;
-          return updated;
-        });
-        setHasMore(raw.length === 20);
-      }
-    } catch (err) {
-      console.error('Browse recipes fetch error:', err);
-      setError(err instanceof Error ? err.message : 'Could not load recipes');
-    } finally {
-      setLoading(false);
-      setIsFetchingMore(false);
-    }
-  }, [protein, carbs, fat, sugar, cookingTime, price, ingredients, cuisines, diets, blacklists, mealTypes, appliedSearchQuery, throttle, filterIsEmpty]);
+  const recipeList = useMemo(() => query.data?.pages.flatMap((p) => p.recipes) ?? [], [query.data]);
+  const hasRecipes = recipeList.length > 0;
 
   useEffect(() => {
-    if (!hydrated) return;
-    setHasMore(true);
-    fetchRecipes(false, false);
-  }, [fetchRecipes, hydrated]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    saveBrowseFilters({
-      protein, carbs, fat, sugar, cookingTime, price,
-      ingredients, cuisines, diets, blacklists, mealTypes,
-      query: appliedSearchQuery,
-    });
-  }, [hydrated, protein, carbs, fat, sugar, cookingTime, price, ingredients, cuisines, diets, blacklists, mealTypes, appliedSearchQuery]);
+    if (hydrated) saveBrowseFilters(filters);
+  }, [hydrated, filters]);
 
   useEffect(() => {
     const normalized = searchInput.trim();
     if (normalized === appliedSearchQuery) return;
-    const timer = setTimeout(() => {
-      setHasMore(true);
-      setAppliedSearchQuery(normalized);
-    }, 700);
+    const timer = setTimeout(() => setAppliedSearchQuery(normalized), 700);
     return () => clearTimeout(timer);
   }, [searchInput, appliedSearchQuery]);
 
-  const handleRefreshRecipes = useCallback(() => {
-    fetchRecipes(true, false);
-  }, [fetchRecipes]);
+  // Drop back to one page first: refetching an infinite query re-requests every loaded page.
+  const handleRefreshRecipes = () => {
+    queryClient.setQueryData<InfiniteData<BrowsePage, number>>(queryKey, (data) => data && firstPage(data));
+    query.refetch();
+  };
 
-  const handleApplySearch = useCallback(() => {
+  const handleApplySearch = () => {
     const normalized = searchInput.trim();
-    setHasMore(true);
-    if (normalized === appliedSearchQuery) {
-      fetchRecipes(true, false);
-    } else {
-      setAppliedSearchQuery(normalized);
-    }
-  }, [searchInput, appliedSearchQuery, fetchRecipes]);
+    if (normalized === appliedSearchQuery) handleRefreshRecipes();
+    else setAppliedSearchQuery(normalized);
+  };
 
-  const loadMore = useCallback(() => {
-    if (!loading && !isFetchingMore && hasMore) {
-      fetchRecipes(false, true);
-    }
-  }, [loading, isFetchingMore, hasMore, fetchRecipes]);
+  const loadMore = () => {
+    if (query.hasNextPage && !query.isFetching) query.fetchNextPage();
+  };
 
   return {
     recipeList,
-    loading,
-    error,
-    isFetchingMore,
-    hasMore,
+    loading: !hydrated || query.isPending || (query.isFetching && !hasRecipes),
+    error: query.error?.message ?? null,
+    isFetchingMore: query.isFetching && hasRecipes,
+    hasMore: query.hasNextPage,
     filterModalOpen,
     searchInput,
     setFilterModalOpen,

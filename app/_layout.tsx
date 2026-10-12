@@ -2,8 +2,8 @@ import {
   Slot, useRouter, useSegments, useRootNavigationState, usePathname, useGlobalSearchParams,
 } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AppState, Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import LoginForm from '../components/LoginForm';
@@ -11,6 +11,9 @@ import LockGate from '../components/LockGate';
 import OnboardingGate from '../components/OnboardingGate';
 
 const queryClient = new QueryClient();
+
+// Native has no window focus: refresh stale queries when the app comes back to the foreground.
+AppState.addEventListener('change', (state) => focusManager.setFocused(state === 'active'));
 
 function RootNavigator() {
   const { user, loading, loginModalOpen, dismissLoginModal } = useAuth();
