@@ -54,6 +54,14 @@ with `toDateKey` from `utils/dateKey.ts`, never `toISOString().slice(0, 10)`. Th
 planner builds cells at local midnight, which UTC renders as the previous day from
 UTC+1 eastward; `tests/dateKey.test.ts` pins this and must pass under any `TZ`.
 
+## Editable line lists
+
+`components/EditableLinesList.tsx` (grocery items, ingredients, steps) nests a
+`DraggableFlatList` in each screen's plain `ScrollView`; its pan is held inactive
+except mid-drag so rows don't swallow the scroll. Don't switch to the library's
+`Nestable*` pair — it measures via `findNodeHandle`, which the new architecture
+rejects, so its drag auto-scroll misfires.
+
 ## Codebase Exploration & Knowledge Sharing
 
 Before starting non-trivial work, especially in an unfamiliar part of the codebase, explore first:
