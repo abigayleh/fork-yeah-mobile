@@ -107,7 +107,7 @@ export default function GroceryListsScreen() {
       {loading ? (
         <ActivityIndicator style={styles.loader} size="large" color="#0f766e" />
       ) : (
-        <ScrollView contentContainerStyle={styles.list}>
+        <ScrollView contentContainerStyle={styles.list} automaticallyAdjustKeyboardInsets>
           {lists.length === 0 ? (
             <Text style={styles.emptyText}>No grocery lists yet. Create one!</Text>
           ) : (

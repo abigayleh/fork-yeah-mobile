@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, TextStyle, TextInputSelectionChangeEvent, TextInputKeyPressEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
@@ -25,6 +25,10 @@ interface EditableLinesListProps<TLine extends EditableLineBase> {
   // On means a full right-swipe removes the line instead of parking on a delete button.
   deleteOnSwipe?: boolean;
 }
+
+// Far enough that the list's pan never claims a touch — idle, swipes over rows
+// belong to the page's ScrollView. It only drops to 1 while a row is being dragged.
+const IDLE_ACTIVATION_DISTANCE = 100000;
 
 // Everything following a header is indented until the next one.
 function getIndentFlags<TLine extends EditableLineBase>(lines: TLine[]): boolean[] {
@@ -58,9 +62,10 @@ export default function EditableLinesList<TLine extends EditableLineBase>({
 }: EditableLinesListProps<TLine>) {
   const inputRefs = useRef<Map<string, TextInput>>(new Map());
   const selections = useRef<Map<string, { start: number; end: number }>>(new Map());
+  const [dragging, setDragging] = useState(false);
   const indentFlags = getIndentFlags(lines);
 
-  useEffect(() => {
+  const focusPending = () => {
     if (!pendingFocus) return;
     const line = lines[pendingFocus.index];
     const el = line ? inputRefs.current.get(line.id) : null;
@@ -68,15 +73,22 @@ export default function EditableLinesList<TLine extends EditableLineBase>({
     el.focus();
     el.setSelection(pendingFocus.caret, pendingFocus.caret);
     clearPendingFocus();
-  }, [pendingFocus, clearPendingFocus, lines]);
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(focusPending, [pendingFocus, lines]);
 
   return (
     <DraggableFlatList
       data={lines}
       keyExtractor={(line) => line.id}
       scrollEnabled={false}
-      activationDistance={12}
-      onDragEnd={({ from, to }) => onReorder(from, to)}
+      activationDistance={dragging ? 1 : IDLE_ACTIVATION_DISTANCE}
+      onDragBegin={() => setDragging(true)}
+      onDragEnd={({ from, to }) => {
+        setDragging(false);
+        onReorder(from, to);
+      }}
       renderItem={({ item: line, getIndex, drag, isActive }: RenderItemParams<TLine>) => {
         const index = getIndex();
         if (index == null) return null;
@@ -112,8 +124,13 @@ export default function EditableLinesList<TLine extends EditableLineBase>({
               <View style={styles.mainColumn}>
                 <TextInput
                   ref={(el) => {
-                    if (el) inputRefs.current.set(line.id, el);
-                    else inputRefs.current.delete(line.id);
+                    if (!el) {
+                      inputRefs.current.delete(line.id);
+                      return;
+                    }
+                    inputRefs.current.set(line.id, el);
+                    // Rows past the rendered window mount a frame late, after the effect gave up.
+                    if (pendingFocus?.index === index) focusPending();
                   }}
                   style={[
                     styles.input,
